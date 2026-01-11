@@ -45,7 +45,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <div className="w-10 h-10 bg-indigo-600 rounded-xl p-1 flex items-center justify-center shadow-lg group-hover:rotate-6 transition-transform">
                 <img src={LOGO_URL} alt="Logo" className="w-full h-full object-contain brightness-0 invert" />
               </div>
-              <h1 className="text-lg font-black text-slate-800 tracking-tight leading-none">SSP</h1>
+              <h1 className="text-sm font-black text-slate-800 tracking-tight leading-none">Smart Support for Pets</h1>
             </Link>
 
             <div className="hidden md:block">

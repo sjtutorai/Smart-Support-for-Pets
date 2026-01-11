@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -71,7 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
               <img src={LOGO_URL} alt="Logo" className="w-8 h-8 object-contain" />
             </div>
             {(!isCollapsed || isOpen) && (
-              <span className="font-black text-white whitespace-nowrap tracking-tight text-lg">SSP Cloud</span>
+              <span className="font-black text-white whitespace-nowrap tracking-tight text-sm">Smart Support for Pets</span>
             )}
           </div>
           
