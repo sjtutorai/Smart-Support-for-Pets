@@ -1,0 +1,8 @@
+{
+  "name": "Smart Support for Pets",
+  "description": "A modern pet-care platform featuring AI-driven support, community posts, and pet profile management.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
