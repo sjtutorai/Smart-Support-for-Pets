@@ -1,10 +1,37 @@
 
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Heart, Calendar, Activity, Plus, PawPrint, Dog, ChevronRight } from 'lucide-react';
+import { 
+  ShieldCheck, 
+  Heart, 
+  Calendar, 
+  Activity, 
+  Plus, 
+  PawPrint, 
+  Dog, 
+  ChevronRight, 
+  Clock, 
+  CheckCircle2, 
+  CircleDot 
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-/* Fix: Standardized named imports from react-router-dom */
 import { Link } from "react-router-dom";
 import { AppRoutes } from '../types';
+
+interface RoutineTask {
+  id: string;
+  task: string;
+  startHour: number; // 0-23
+  endHour: number;   // 0-23
+  timeLabel: string;
+}
+
+const STAT_ROUTINE: RoutineTask[] = [
+  { id: '1', task: 'Morning Walk', startHour: 7, endHour: 8, timeLabel: '07:00 - 08:00' },
+  { id: '2', task: 'Breakfast', startHour: 8, endHour: 9, timeLabel: '08:30 - 09:00' },
+  { id: '3', task: 'Mid-day Play', startHour: 12, endHour: 13, timeLabel: '12:00 - 13:00' },
+  { id: '4', task: 'Dinner Time', startHour: 18, endHour: 19, timeLabel: '18:00 - 19:00' },
+  { id: '5', task: 'Night Walk', startHour: 21, endHour: 22, timeLabel: '21:00 - 22:00' },
+];
 
 const StatCard: React.FC<{ icon: React.ElementType, label: string, value: string, color: string }> = ({ icon: Icon, label, value, color }) => (
   <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl hover:translate-y-[-4px] transition-all duration-300">
@@ -19,7 +46,16 @@ const StatCard: React.FC<{ icon: React.ElementType, label: string, value: string
 const Home: React.FC = () => {
   const { user } = useAuth();
   const [pet, setPet] = useState<any>(null);
+  const [currentHour, setCurrentHour] = useState(new Date().getHours());
   
+  // Update time every minute to keep routine in sync
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentHour(new Date().getHours());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     const savedPet = localStorage.getItem(`pet_${user?.uid}`);
     if (savedPet) {
@@ -31,6 +67,12 @@ const Home: React.FC = () => {
 
   const firstName = user?.displayName?.split(' ')[0] || 'Pet Lover';
   const hasPet = !!pet;
+
+  const getTaskStatus = (task: RoutineTask) => {
+    if (currentHour >= task.endHour) return 'done';
+    if (currentHour >= task.startHour && currentHour < task.endHour) return 'active';
+    return 'pending';
+  };
 
   return (
     <div className="space-y-10 pb-16">
@@ -108,24 +150,57 @@ const Home: React.FC = () => {
                 <p className="text-slate-300 text-xs mt-3 font-medium italic">Collect enough data for AI insights</p>
               </Link>
             </div>
-            <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 p-10">
-              <h4 className="font-black text-2xl text-slate-800 mb-10 tracking-tight">Care Routine</h4>
-              <div className="space-y-8">
-                {[
-                  { task: 'Breakfast', done: false },
-                  { task: 'Morning Play', done: false },
-                  { task: 'Evening Brush', done: false },
-                  { task: 'Night Walk', done: false },
-                ].map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-5 group cursor-pointer">
-                    <div className={`w-8 h-8 rounded-2xl border-2 flex items-center justify-center transition-all ${item.done ? 'bg-indigo-600 border-indigo-600' : 'border-slate-200 group-hover:border-indigo-500 group-hover:bg-indigo-50'}`}>
-                      {item.done && <ShieldCheck size={18} className="text-white" />}
+
+            <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 p-10 flex flex-col">
+              <div className="flex items-center justify-between mb-8">
+                <h4 className="font-black text-2xl text-slate-800 tracking-tight">Care Routine</h4>
+                <div className="px-3 py-1 bg-slate-100 rounded-full text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <Clock size={12} /> Live
+                </div>
+              </div>
+              
+              <div className="space-y-4 flex-1">
+                {STAT_ROUTINE.map((item) => {
+                  const status = getTaskStatus(item);
+                  return (
+                    <div 
+                      key={item.id} 
+                      className={`flex items-center gap-4 p-4 rounded-2xl border transition-all duration-500 ${
+                        status === 'active' 
+                        ? 'bg-indigo-50 border-indigo-200 shadow-md scale-[1.02]' 
+                        : status === 'done'
+                        ? 'bg-slate-50 border-transparent opacity-60'
+                        : 'bg-white border-slate-50'
+                      }`}
+                    >
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                        status === 'active' ? 'bg-indigo-600 text-white animate-pulse' : 
+                        status === 'done' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'
+                      }`}>
+                        {status === 'done' ? <CheckCircle2 size={20} /> : 
+                         status === 'active' ? <CircleDot size={20} /> : <Clock size={20} />}
+                      </div>
+                      
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                          <span className={`font-black text-sm transition-all ${status === 'done' ? 'line-through text-slate-400' : 'text-slate-700'}`}>
+                            {item.task}
+                          </span>
+                          {status === 'active' && (
+                            <span className="text-[8px] font-black bg-indigo-600 text-white px-2 py-0.5 rounded-full uppercase tracking-widest">Active</span>
+                          )}
+                        </div>
+                        <p className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${status === 'active' ? 'text-indigo-400' : 'text-slate-400'}`}>
+                          {item.timeLabel}
+                        </p>
+                      </div>
                     </div>
-                    <span className={`text-lg font-bold transition-all ${item.done ? 'line-through text-slate-400' : 'text-slate-700 group-hover:text-indigo-600'}`}>
-                      {item.task}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
+              </div>
+
+              <div className="mt-8 p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-center">
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Daily Reset: 00:00 AM</p>
               </div>
             </div>
           </div>
