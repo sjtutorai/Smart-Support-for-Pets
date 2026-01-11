@@ -11,7 +11,7 @@ import {
   updateProfile,
   User as FirebaseUser 
 } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDocs, collection, query, where, limit } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDocs, collection, query, where, limit, updateDoc } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCVUMhFhDzfbvF-iXthH6StOlI6mJreTmA",
@@ -61,6 +61,30 @@ export const loginWithIdentifier = async (identifier: string, pass: string) => {
     console.error("Login failed:", error);
     throw error;
   }
+};
+
+export const checkUsernameUnique = async (username: string, currentUid: string) => {
+  const q = query(
+    collection(db, "users"), 
+    where("username", "==", username.toLowerCase()), 
+    limit(1)
+  );
+  const querySnapshot = await getDocs(q);
+  if (querySnapshot.empty) return true;
+  
+  // If it's the current user's own username, it's technically "available" for them to keep
+  return querySnapshot.docs[0].id === currentUid;
+};
+
+export const updateUsername = async (uid: string, newUsername: string) => {
+  const isUnique = await checkUsernameUnique(newUsername, uid);
+  if (!isUnique) {
+    throw new Error("This username is already taken. Please try another one.");
+  }
+  const userRef = doc(db, "users", uid);
+  await updateDoc(userRef, {
+    username: newUsername.toLowerCase()
+  });
 };
 
 export const signUpWithEmail = async (email: string, pass: string, displayName: string, username: string) => {

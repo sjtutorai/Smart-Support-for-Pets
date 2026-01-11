@@ -97,13 +97,16 @@ const Home: React.FC = () => {
                 <Activity className="text-indigo-600 w-6 h-6" />
                 Active Monitoring
               </h4>
-              <div className="h-80 bg-slate-50/50 rounded-[2.5rem] flex flex-col items-center justify-center border-2 border-dashed border-slate-200 group cursor-pointer hover:border-indigo-300 transition-all">
+              <Link 
+                to={AppRoutes.PET_PROFILE}
+                className="block h-80 bg-slate-50/50 rounded-[2.5rem] flex flex-col items-center justify-center border-2 border-dashed border-slate-200 group cursor-pointer hover:border-indigo-300 hover:bg-white transition-all active:scale-[0.98] outline-none focus:ring-4 focus:ring-indigo-100"
+              >
                 <div className="bg-white p-6 rounded-3xl shadow-sm mb-6 group-hover:scale-110 group-hover:shadow-xl transition-all">
                   <Plus className="text-slate-300 w-12 h-12 group-hover:text-indigo-500" />
                 </div>
                 <p className="text-slate-400 font-black text-sm uppercase tracking-[0.2em]">Start Health Log</p>
                 <p className="text-slate-300 text-xs mt-3 font-medium italic">Collect enough data for AI insights</p>
-              </div>
+              </Link>
             </div>
             <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 p-10">
               <h4 className="font-black text-2xl text-slate-800 mb-10 tracking-tight">Care Routine</h4>
