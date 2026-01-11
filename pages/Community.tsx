@@ -11,9 +11,20 @@ import {
   Smile,
   MapPin,
   CheckCircle2,
-  Camera
+  Camera,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { db } from '../services/firebase';
+import { 
+  collection, 
+  addDoc, 
+  query, 
+  orderBy, 
+  onSnapshot, 
+  serverTimestamp,
+  Timestamp 
+} from "firebase/firestore";
 
 interface Post {
   id: string;
@@ -24,8 +35,9 @@ interface Post {
   image: string;
   likes: number;
   comments: number;
-  time: string;
+  createdAt: any;
   isUser?: boolean;
+  userId: string;
 }
 
 const Community: React.FC = () => {
@@ -34,85 +46,71 @@ const Community: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [newPostContent, setNewPostContent] = useState('');
   const [isPosting, setIsPosting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Load pet data
     const savedPet = localStorage.getItem(`pet_${user?.uid}`);
     if (savedPet) setPet(JSON.parse(savedPet));
 
-    // Initial Mock Feed
-    const mockPosts: Post[] = [
-      {
-        id: '1',
-        user: 'Sarah Miller',
-        avatar: 'https://i.pravatar.cc/150?u=sarah',
-        petName: 'Bella',
-        content: 'Bella finally learned how to "shake" today! So proud of my clever girl. 🐾✨',
-        image: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=800',
-        likes: 124,
-        comments: 12,
-        time: '2h ago'
-      },
-      {
-        id: '2',
-        user: 'David Chen',
-        avatar: 'https://i.pravatar.cc/150?u=david',
-        petName: 'Nimbus',
-        content: 'Is it just me, or do Persians always look like they are judging your life choices? 😂',
-        image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&q=80&w=800',
-        likes: 89,
-        comments: 5,
-        time: '5h ago'
-      },
-      {
-        id: '3',
-        user: 'Emma Wilson',
-        avatar: 'https://i.pravatar.cc/150?u=emma',
-        petName: 'Oliver',
-        content: 'Enjoying the sunset at Central Park. Oliver loves the fresh air!',
-        image: 'https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?auto=format&fit=crop&q=80&w=800',
-        likes: 245,
-        comments: 18,
-        time: '8h ago'
-      }
-    ];
-
-    // Load user's local posts if any
-    const savedLocalPosts = localStorage.getItem(`community_posts_${user?.uid}`);
-    const localPosts = savedLocalPosts ? JSON.parse(savedLocalPosts) : [];
+    // Real-time listener for Firestore posts
+    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
     
-    setPosts([...localPosts, ...mockPosts]);
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedPosts = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Post[];
+      
+      setPosts(fetchedPosts);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching posts:", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [user]);
 
-  const handleCreatePost = (e: React.FormEvent) => {
+  const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPostContent.trim()) return;
+    if (!newPostContent.trim() || !user) return;
 
     setIsPosting(true);
 
-    const newPost: Post = {
-      id: Date.now().toString(),
-      user: user?.displayName || 'Pet Parent',
-      avatar: user?.photoURL || `https://i.pravatar.cc/150?u=${user?.uid}`,
-      petName: pet?.name || 'My Pet',
-      content: newPostContent,
-      image: `https://picsum.photos/seed/${Date.now()}/800/600`,
-      likes: 0,
-      comments: 0,
-      time: 'Just now',
-      isUser: true
-    };
+    try {
+      // Create global post in Firestore
+      await addDoc(collection(db, "posts"), {
+        user: user.displayName || 'Pet Parent',
+        avatar: user.photoURL || `https://i.pravatar.cc/150?u=${user.uid}`,
+        petName: pet?.name || 'My Pet',
+        content: newPostContent,
+        image: `https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=800&sig=${Date.now()}`, // Shared placeholder
+        likes: Math.floor(Math.random() * 10), // Mock initial likes
+        comments: 0,
+        createdAt: serverTimestamp(),
+        userId: user.uid
+      });
 
-    const updatedPosts = [newPost, ...posts];
-    setPosts(updatedPosts);
+      setNewPostContent('');
+    } catch (error) {
+      console.error("Error creating post:", error);
+      alert("Failed to share post. Please check your internet connection.");
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
+  const formatTime = (createdAt: any) => {
+    if (!createdAt) return 'Just now';
+    const date = createdAt instanceof Timestamp ? createdAt.toDate() : new Date(createdAt);
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
     
-    // Persist user post locally
-    const savedLocalPosts = localStorage.getItem(`community_posts_${user?.uid}`);
-    const localPosts = savedLocalPosts ? JSON.parse(savedLocalPosts) : [];
-    localStorage.setItem(`community_posts_${user?.uid}`, JSON.stringify([newPost, ...localPosts]));
-
-    setNewPostContent('');
-    setTimeout(() => setIsPosting(false), 500);
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return date.toLocaleDateString();
   };
 
   return (
@@ -121,7 +119,7 @@ const Community: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Community Feed</h2>
-          <p className="text-slate-500 font-medium">Share moments and connect with other pet parents.</p>
+          <p className="text-slate-500 font-medium">Shared by pet parents globally.</p>
         </div>
         <div className="hidden md:flex -space-x-3">
           {[1, 2, 3, 4].map(i => (
@@ -130,13 +128,13 @@ const Community: React.FC = () => {
             </div>
           ))}
           <div className="w-10 h-10 rounded-full bg-indigo-600 border-2 border-white flex items-center justify-center text-[10px] text-white font-bold shadow-sm">
-            +2.4k
+            +{posts.length > 0 ? posts.length : '...'}
           </div>
         </div>
       </div>
 
       {/* Post Composer */}
-      <div className="bg-white rounded-[3rem] p-8 border border-slate-100 shadow-sm space-y-6">
+      <div className="bg-white rounded-[3rem] p-8 border border-slate-100 shadow-sm space-y-6 transition-all focus-within:shadow-xl focus-within:shadow-indigo-50/50">
         <div className="flex gap-4">
           <div className="w-12 h-12 rounded-2xl overflow-hidden shrink-0 shadow-md">
             <img src={user?.photoURL || `https://i.pravatar.cc/150?u=${user?.uid}`} alt="Me" className="w-full h-full object-cover" />
@@ -169,20 +167,33 @@ const Community: React.FC = () => {
             disabled={!newPostContent.trim() || isPosting}
             className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 active:scale-95 disabled:opacity-50"
           >
-            {isPosting ? 'Posting...' : 'Share Moment'}
-            <Send size={18} />
+            {isPosting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+            {isPosting ? 'Sharing...' : 'Share Moment'}
           </button>
         </div>
       </div>
 
       {/* Feed */}
       <div className="space-y-10">
-        {posts.map((post) => (
-          <article key={post.id} className="bg-white rounded-[3.5rem] border border-slate-100 shadow-sm overflow-hidden group">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-4">
+            <Loader2 size={40} className="animate-spin text-indigo-600" />
+            <p className="font-bold uppercase tracking-[0.2em] text-xs">Loading Shared Moments...</p>
+          </div>
+        ) : posts.length === 0 ? (
+          <div className="bg-white rounded-[3rem] p-20 text-center border border-slate-100">
+            <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-600">
+              <Camera size={32} />
+            </div>
+            <h3 className="text-2xl font-black text-slate-900 mb-2">No moments shared yet</h3>
+            <p className="text-slate-500 font-medium">Be the first to share a moment with the global community!</p>
+          </div>
+        ) : posts.map((post) => (
+          <article key={post.id} className="bg-white rounded-[3.5rem] border border-slate-100 shadow-sm overflow-hidden group hover:shadow-2xl hover:shadow-indigo-50 transition-all duration-500">
             {/* Post Header */}
             <div className="p-8 flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-lg">
+                <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-lg border-2 border-white">
                   <img src={post.avatar} alt={post.user} className="w-full h-full object-cover" />
                 </div>
                 <div>
@@ -190,9 +201,9 @@ const Community: React.FC = () => {
                     {post.user}
                     <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
                     <span className="text-indigo-600">{post.petName}</span>
-                    {post.isUser && <CheckCircle2 size={14} className="text-emerald-500" />}
+                    {post.userId === user?.uid && <CheckCircle2 size={14} className="text-emerald-500" />}
                   </h4>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{post.time}</p>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{formatTime(post.createdAt)}</p>
                 </div>
               </div>
               <button className="text-slate-300 hover:text-slate-600 transition-colors">
