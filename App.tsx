@@ -111,7 +111,7 @@ const HealthCheckupPage: React.FC = () => {
                 <div className="text-indigo-900 font-bold">{selectedCondition.treatment}</div>
               </div>
             </div>
-          ) : <p className="text-slate-400 flex items-center justify-center h-full">Select a condition.</p>}
+          ) : <p className="text-slate-400 flex items-center justify-center h-full">Select a condition to see details.</p>}
         </div>
       </div>
     </div>
@@ -137,8 +137,7 @@ const PetProfilePage: React.FC = () => {
     e.preventDefault();
     setAgeError(false);
 
-    // Validation: Negative values should be impossible with select, but we clamp anyway
-    // Impossible age: 0 years AND 0 months is technically possible but usually a mistake
+    // Validation: Impossible age check
     if (newPet.ageYears === '0' && newPet.ageMonths === '0') {
       setAgeError(true);
       return;
@@ -156,6 +155,7 @@ const PetProfilePage: React.FC = () => {
       <div className="max-w-2xl mx-auto py-24 text-center">
         <div className="bg-indigo-50 w-32 h-32 rounded-[3rem] flex items-center justify-center mx-auto mb-8 shadow-inner"><PawPrint className="w-16 h-16 text-indigo-600" /></div>
         <h2 className="text-4xl font-black text-slate-900 mb-4 tracking-tight">Register Your Companion</h2>
+        <p className="text-slate-500 mb-10 font-medium">Create a profile to unlock personalized AI support and tracking.</p>
         <button onClick={() => setIsAdding(true)} className="bg-indigo-600 text-white px-10 py-5 rounded-[2rem] font-bold hover:bg-indigo-700 shadow-2xl transition-all active:scale-95">Add Profile</button>
       </div>
     );
@@ -167,14 +167,14 @@ const PetProfilePage: React.FC = () => {
         <div className="bg-white p-14 rounded-[3.5rem] shadow-2xl border border-slate-100 relative overflow-hidden">
           {saveSuccess && <div className="absolute inset-0 bg-indigo-600/95 flex flex-col items-center justify-center z-50 text-white"><Check size={48} className="mb-4" /><h3 className="text-2xl font-black">Saved Successfully!</h3></div>}
           <div className="flex items-center justify-between mb-10">
-            <h2 className="text-3xl font-black text-slate-900">{step === 1 ? 'Category' : step === 2 ? 'Species' : 'Details'}</h2>
+            <h2 className="text-3xl font-black text-slate-900">{step === 1 ? 'Choose Category' : step === 2 ? 'Select Species' : 'Complete Details'}</h2>
             {step > 1 && <button onClick={() => setStep(step - 1)} className="text-slate-400 font-bold flex items-center gap-1"><ArrowLeft size={16} /> Back</button>}
           </div>
           {step === 1 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {PET_CATEGORIES.map(cat => (
-                <button key={cat.id} onClick={() => { setSelectedCategory(cat); setStep(2); }} className="p-6 rounded-[2.5rem] bg-slate-50 border border-transparent hover:border-indigo-500 hover:bg-white hover:shadow-xl transition-all flex flex-col items-center gap-4">
-                  <cat.icon className="w-10 h-10 text-indigo-600" />
+                <button key={cat.id} onClick={() => { setSelectedCategory(cat); setStep(2); }} className="p-6 rounded-[2.5rem] bg-slate-50 border border-transparent hover:border-indigo-500 hover:bg-white hover:shadow-xl transition-all flex flex-col items-center gap-4 group">
+                  <cat.icon className="w-10 h-10 text-indigo-600 group-hover:scale-110 transition-transform" />
                   <span className="font-black text-xs uppercase tracking-widest text-slate-600">{cat.name}</span>
                 </button>
               ))}
@@ -188,27 +188,33 @@ const PetProfilePage: React.FC = () => {
           ) : (
             <form onSubmit={handleAddPet} className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <input required value={newPet.name} onChange={e => setNewPet({ ...newPet, name: e.target.value })} className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-5 focus:ring-4 focus:ring-indigo-100 outline-none" placeholder="Pet's Name" />
-                <select value={newPet.breed} onChange={e => setNewPet({ ...newPet, breed: e.target.value })} className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-5 outline-none">
-                  {BREED_DATA[newPet.species]?.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
+                <div className="space-y-1">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Pet Name</label>
+                  <input required value={newPet.name} onChange={e => setNewPet({ ...newPet, name: e.target.value })} className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-5 focus:ring-4 focus:ring-indigo-100 outline-none" placeholder="e.g. Luna" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Breed / Variety</label>
+                  <select value={newPet.breed} onChange={e => setNewPet({ ...newPet, breed: e.target.value })} className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-5 outline-none focus:ring-4 focus:ring-indigo-100">
+                    {BREED_DATA[newPet.species]?.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Years</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Years Old</label>
                   <select value={newPet.ageYears} onChange={e => setNewPet({...newPet, ageYears: e.target.value})} className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-5 focus:ring-4 focus:ring-indigo-100 outline-none">
                     {[...Array(26)].map((_, i) => <option key={i} value={i}>{i}</option>)}
                   </select>
                 </div>
-                <div>
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Months (0-11)</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Months Old (0-11)</label>
                   <select value={newPet.ageMonths} onChange={e => setNewPet({...newPet, ageMonths: e.target.value})} className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-5 focus:ring-4 focus:ring-indigo-100 outline-none">
                     {[...Array(12)].map((_, i) => <option key={i} value={i}>{i}</option>)}
                   </select>
                 </div>
               </div>
-              {ageError && <div className="p-4 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold flex items-center gap-2 animate-shake"><AlertCircle size={14} /> Please enter a valid age for your companion.</div>}
-              <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-[2.5rem] font-bold text-lg hover:bg-indigo-700 shadow-xl active:scale-95 transition-all">Save Profile</button>
+              {ageError && <div className="p-4 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold flex items-center gap-2 animate-shake"><AlertCircle size={14} /> Your pet must be at least 1 month old to create a profile.</div>}
+              <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-[2.5rem] font-bold text-lg hover:bg-indigo-700 shadow-xl active:scale-95 transition-all">Create Profile</button>
             </form>
           )}
         </div>
@@ -219,11 +225,14 @@ const PetProfilePage: React.FC = () => {
   return (
     <div className="max-w-5xl mx-auto pb-20 animate-fade-in">
       <div className="flex flex-col md:flex-row items-center gap-10 mb-16">
-        <div className="w-48 h-48 rounded-[4rem] bg-indigo-100 overflow-hidden shadow-2xl"><img src={`https://picsum.photos/seed/${pet.name}/400`} className="w-full h-full object-cover" /></div>
+        <div className="w-48 h-48 rounded-[4rem] bg-indigo-100 overflow-hidden shadow-2xl border-4 border-white"><img src={`https://picsum.photos/seed/${pet.name}/400`} className="w-full h-full object-cover" /></div>
         <div className="flex-1 text-center md:text-left">
           <h2 className="text-6xl font-black text-slate-900 mb-3 tracking-tighter">{pet.name}</h2>
-          <p className="text-slate-500 text-xl font-medium">{pet.breed} • {pet.ageYears}Y {pet.ageMonths}M Old</p>
-          <button onClick={() => { localStorage.removeItem(`pet_${user?.uid}`); setPet(null); }} className="mt-8 px-8 py-3 border border-rose-100 text-rose-500 font-bold rounded-2xl hover:bg-rose-50 transition-all">Delete Profile</button>
+          <p className="text-slate-500 text-xl font-medium">{pet.breed} • {pet.ageYears} Years {pet.ageMonths} Months Old</p>
+          <div className="flex gap-4 mt-8 justify-center md:justify-start">
+            <button className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 shadow-xl transition-all">Edit Profile</button>
+            <button onClick={() => { if(confirm("Delete profile?")) { localStorage.removeItem(`pet_${user?.uid}`); setPet(null); } }} className="px-8 py-3 border border-rose-100 text-rose-500 font-bold rounded-2xl hover:bg-rose-50 transition-all">Delete</button>
+          </div>
         </div>
       </div>
     </div>
