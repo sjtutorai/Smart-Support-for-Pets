@@ -1,6 +1,6 @@
 {
-  "name": "Smart Support for Pets",
-  "description": "A modern pet-care platform featuring AI-driven support, community posts, and pet profile management.",
+  "name": "SS Paw Pal",
+  "description": "Your AI-powered companion for pet care. Manage profiles, get health insights, and connect with a global community of pet lovers.",
   "requestFramePermissions": [
     "camera",
     "microphone"

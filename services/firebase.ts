@@ -84,7 +84,9 @@ export const syncUserToDb = async (user: FirebaseUser, extraData: any = {}) => {
 
 export const loginWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
-  provider.setCustomParameters({ prompt: 'select_account' });
+  provider.setCustomParameters({ prompt: 'select_account consent' });
+  provider.addScope('profile');
+  provider.addScope('email');
   
   try {
     const result = await signInWithPopup(auth, provider);
@@ -93,126 +95,112 @@ export const loginWithGoogle = async () => {
       return result.user;
     }
   } catch (error: any) {
-    console.error("Google login error:", error.code, error.message);
+    console.error("Google login error:", error);
     throw error;
   }
 };
 
-export const loginWithIdentifier = async (identifier: string, pass: string) => {
-  try {
-    let email = identifier;
-    if (!identifier.includes('@')) {
-      const q = query(collection(db, "users"), where("username", "==", identifier.toLowerCase()), limit(1));
-      const querySnapshot = await getDocs(q);
-      if (querySnapshot.empty) {
-        throw new Error("Username not found. Try your email address.");
-      }
-      email = querySnapshot.docs[0].data().email;
-    }
-    const result = await signInWithEmailAndPassword(auth, email, pass);
-    if (result.user) await syncUserToDb(result.user);
-    return result.user;
-  } catch (error: any) {
-    console.error("Login error:", error.code, error.message);
-    throw error;
-  }
+// FIX: Add missing firebase service functions and exports
+
+export const logout = () => {
+  return signOut(auth);
 };
 
-export const signUpWithEmail = async (email: string, pass: string, fullName: string, username: string) => {
-  try {
-    // Check username availability first
-    const taken = await isUsernameTaken(username, "new_user");
-    if (taken) throw new Error("This username is already claimed.");
-
-    const result = await createUserWithEmailAndPassword(auth, email, pass);
-    if (result.user) {
-      await updateProfile(result.user, { displayName: fullName });
-      await syncUserToDb(result.user, { displayName: fullName, username: username.toLowerCase() });
-      return result.user;
+export const loginWithIdentifier = async (identifier: string, password: string) => {
+  let email = identifier.trim();
+  if (!identifier.includes('@')) {
+    const q = query(collection(db, "users"), where("username", "==", identifier.toLowerCase().trim()), limit(1));
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) {
+      // Let firebase handle the error for non-existent user for security.
+      // This will fail with auth/invalid-email which is handled as invalid credential.
+      return signInWithEmailAndPassword(auth, identifier, password);
     }
-    throw new Error("Failed to create user session.");
-  } catch (error: any) {
-    console.error("Signup error:", error.code, error.message);
-    throw error;
+    const userData = querySnapshot.docs[0].data();
+    if (!userData.email) {
+      throw { code: 'auth/invalid-credential', message: 'No email associated with this username.' };
+    }
+    email = userData.email;
   }
+  const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  await syncUserToDb(userCredential.user);
+  return userCredential.user;
+};
+
+export const signUpWithEmail = async (email: string, password: string, fullName: string, username: string) => {
+  const isTaken = await isUsernameTaken(username, '');
+  if (isTaken) {
+    throw { code: 'auth/username-already-in-use', message: 'This username is already taken.' };
+  }
+  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  const user = userCredential.user;
+  await updateProfile(user, { displayName: fullName });
+  await syncUserToDb(user, {
+    displayName: fullName,
+    username: username.toLowerCase().trim(),
+  });
+  return user;
 };
 
 export const updateUserProfile = async (uid: string, data: { displayName?: string, username?: string, phoneNumber?: string }) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("No active session found.");
+  const { displayName, username, phoneNumber } = data;
+  if (username) {
+    const taken = await isUsernameTaken(username, uid);
+    if (taken) {
+      throw new Error("That username is already taken. Please try another.");
+    }
+  }
 
-  const userRef = doc(db, "users", uid);
-  const firestoreData: any = { ...data };
-  
-  if (data.username) {
-    const cleanedUsername = data.username.toLowerCase().replace(/\s/g, '').trim();
-    if (cleanedUsername.length < 3) throw new Error("Username must be at least 3 characters.");
-    
-    const taken = await isUsernameTaken(cleanedUsername, uid);
-    if (taken) throw new Error("Username is already taken.");
-    firestoreData.username = cleanedUsername;
+  const user = auth.currentUser;
+  if (user && user.uid === uid) {
+    if (displayName && displayName !== user.displayName) {
+      await updateProfile(user, { displayName });
+    }
   }
   
-  try {
-    await setDoc(userRef, firestoreData, { merge: true });
-    if (data.displayName) {
-      await updateProfile(user, { displayName: data.displayName });
-    }
-    await user.reload();
-    return auth.currentUser;
-  } catch (err: any) {
-    console.error("Profile update failed:", err);
-    throw err;
+  const userRef = doc(db, "users", uid);
+  const updateData: any = {};
+  if (displayName !== undefined) updateData.displayName = displayName;
+  if (username !== undefined) updateData.username = username.toLowerCase().trim();
+  if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
+
+  if (Object.keys(updateData).length > 0) {
+    await updateDoc(userRef, updateData);
   }
 };
 
-export const startChat = async (currentUserId: string, targetUserId: string) => {
-  const chatsRef = collection(db, "chats");
-  const q = query(chatsRef, where("participants", "array-contains", currentUserId));
+export const startChat = async (currentUserId: string, targetUserId: string): Promise<string> => {
+  const participants = [currentUserId, targetUserId].sort();
+  const q = query(
+    collection(db, "chats"),
+    where("participants", "==", participants),
+    limit(1)
+  );
   const querySnapshot = await getDocs(q);
-  
-  let existingChatId = "";
-  querySnapshot.forEach(doc => {
-    const data = doc.data();
-    if (data.participants && data.participants.includes(targetUserId)) {
-      existingChatId = doc.id;
-    }
+  if (!querySnapshot.empty) {
+    return querySnapshot.docs[0].id;
+  }
+  const newChatRef = await addDoc(collection(db, "chats"), {
+    participants,
+    lastMessage: '',
+    createdAt: serverTimestamp(),
+    lastTimestamp: serverTimestamp(),
   });
-
-  if (existingChatId) return existingChatId;
-
-  const newChatDoc = await addDoc(chatsRef, {
-    participants: [currentUserId, targetUserId],
-    lastMessage: "",
-    lastTimestamp: serverTimestamp()
-  });
-
-  return newChatDoc.id;
+  return newChatRef.id;
 };
 
 export const sendChatMessage = async (chatId: string, senderId: string, text: string) => {
   const chatRef = doc(db, "chats", chatId);
-  const messagesRef = collection(db, "chats", chatId, "messages");
-
+  const messagesRef = collection(chatRef, "messages");
   await addDoc(messagesRef, {
     senderId,
     text,
-    timestamp: serverTimestamp()
+    timestamp: serverTimestamp(),
   });
-
   await updateDoc(chatRef, {
     lastMessage: text,
-    lastTimestamp: serverTimestamp()
+    lastTimestamp: serverTimestamp(),
   });
-};
-
-export const logout = async () => {
-  try {
-    await signOut(auth);
-  } catch (error) {
-    console.error("Logout failed:", error);
-    throw error;
-  }
 };
 
 export { onAuthStateChanged };
