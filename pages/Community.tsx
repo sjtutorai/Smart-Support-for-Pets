@@ -20,7 +20,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { db, startChat } from '../services/firebase';
+import { db, startChat, checkMutualFollow } from '../services/firebase';
 import { useNavigate } from "react-router-dom";
 import { 
   collection, 
@@ -131,9 +131,15 @@ const Community: React.FC = () => {
 
   const handleMessageUser = async (targetUserId: string) => {
     if (!user || user.uid === targetUserId) return;
-    const chatId = await startChat(user.uid, targetUserId);
-    if (chatId) {
-      navigate(AppRoutes.CHAT);
+
+    const areMutuals = await checkMutualFollow(user.uid, targetUserId);
+    if (areMutuals) {
+      const chatId = await startChat(user.uid, targetUserId);
+      if (chatId) {
+        navigate(AppRoutes.CHAT);
+      }
+    } else {
+      alert("You and this user must follow each other to start a conversation.");
     }
   };
 

@@ -16,7 +16,8 @@ import {
   Send,
   User as UserIcon,
   ShieldCheck,
-  LayoutGrid
+  LayoutGrid,
+  UserSearch
 } from 'lucide-react';
 import { AppRoutes, NavItem } from '../types';
 import { logout } from '../services/firebase';
@@ -48,6 +49,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
       items: [
         { label: 'Social Feed', path: AppRoutes.CREATE_POST, icon: PlusSquare },
         { label: 'Messages', path: AppRoutes.CHAT, icon: Send },
+        { label: 'Find Friends', path: AppRoutes.FIND_FRIENDS, icon: UserSearch },
       ]
     },
     {

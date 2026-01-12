@@ -25,7 +25,8 @@ import {
   addDoc, 
   serverTimestamp, 
   orderBy, 
-  onSnapshot 
+  onSnapshot,
+  deleteDoc
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -99,8 +100,6 @@ export const loginWithGoogle = async () => {
     throw error;
   }
 };
-
-// FIX: Add missing firebase service functions and exports
 
 export const logout = () => {
   return signOut(auth);
@@ -201,6 +200,74 @@ export const sendChatMessage = async (chatId: string, senderId: string, text: st
     lastMessage: text,
     lastTimestamp: serverTimestamp(),
   });
+};
+
+// New Function: Search for users by email, excluding the current user
+export const searchUsersByEmail = async (email: string, currentUserId: string) => {
+  if (!email) return [];
+  const q = query(
+    collection(db, "users"),
+    where("email", "==", email.toLowerCase().trim())
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs
+    .map(doc => ({ id: doc.id, ...doc.data() }))
+    .filter(user => user.id !== currentUserId);
+};
+
+// New Function: Follow a user
+export const followUser = async (currentUserId: string, targetUserId: string) => {
+  const followingRef = doc(db, 'users', currentUserId, 'following', targetUserId);
+  await setDoc(followingRef, { timestamp: serverTimestamp() });
+  const followersRef = doc(db, 'users', targetUserId, 'followers', currentUserId);
+  await setDoc(followersRef, { timestamp: serverTimestamp() });
+};
+
+// New Function: Unfollow a user
+export const unfollowUser = async (currentUserId: string, targetUserId: string) => {
+  const followingRef = doc(db, 'users', currentUserId, 'following', targetUserId);
+  await deleteDoc(followingRef);
+  const followersRef = doc(db, 'users', targetUserId, 'followers', currentUserId);
+  await deleteDoc(followersRef);
+};
+
+// New Function: Listen for real-time updates on follows
+export const onFollowsUpdate = (
+  userId: string,
+  callback: (data: { following: string[], followers: string[] }) => void
+) => {
+  const followingQuery = query(collection(db, 'users', userId, 'following'));
+  const followersQuery = query(collection(db, 'users', userId, 'followers'));
+
+  let following: string[] = [];
+  let followers: string[] = [];
+  let combinedData = { following, followers };
+
+  const unsubFollowing = onSnapshot(followingQuery, (snapshot) => {
+    following = snapshot.docs.map(doc => doc.id);
+    combinedData = { ...combinedData, following };
+    callback(combinedData);
+  });
+
+  const unsubFollowers = onSnapshot(followersQuery, (snapshot) => {
+    followers = snapshot.docs.map(doc => doc.id);
+    combinedData = { ...combinedData, followers };
+    callback(combinedData);
+  });
+
+  return () => {
+    unsubFollowing();
+    unsubFollowers();
+  };
+};
+
+// New Function: Check for mutual follow
+export const checkMutualFollow = async (userId1: string, userId2: string) => {
+  const user1Follows2Doc = await getDoc(doc(db, 'users', userId1, 'following', userId2));
+  if (!user1Follows2Doc.exists()) return false;
+  
+  const user2Follows1Doc = await getDoc(doc(db, 'users', userId2, 'following', userId1));
+  return user2Follows1Doc.exists();
 };
 
 export { onAuthStateChanged };

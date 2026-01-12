@@ -12,6 +12,7 @@ export enum AppRoutes {
   TERMS = '/terms',
   PRIVACY = '/privacy',
   CHAT = '/chat',
+  FIND_FRIENDS = '/find-friends',
 }
 
 export interface NavItem {
