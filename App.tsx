@@ -36,7 +36,6 @@ declare global {
     openSelectKey: () => Promise<void>;
   }
   interface Window {
-    // Fixed: Added optional modifier to match the existing global declaration and resolve the "identical modifiers" error.
     aistudio?: AIStudio;
   }
 }
@@ -141,11 +140,16 @@ const PetProfilePage: React.FC = () => {
     setPets(updatedPets);
   };
 
+  const generateQRCode = (petName: string) => {
+    const qrData = `Parent: ${user?.displayName || 'Pet Parent'}\nPet Name: ${petName}\nApp: Smart Support for Pets\nWeb: https://smartsupportforpets.vercel.app/`;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrData)}`;
+  };
+
   const handleAddPet = (e: React.FormEvent) => {
     e.preventDefault();
     const id = crypto.randomUUID();
     const { years, months } = calculateAge(newPet.birthday || '');
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=ssp_pet_${id}`;
+    const qrCodeUrl = generateQRCode(newPet.name || 'My Pet');
     
     const completePet: PetProfile = {
       ...newPet as PetProfile,
@@ -168,7 +172,12 @@ const PetProfilePage: React.FC = () => {
     e.preventDefault();
     if (!selectedPet) return;
     const { years, months } = calculateAge(selectedPet.birthday || '');
-    const updatedPet = { ...selectedPet, ageYears: String(years), ageMonths: String(months) };
+    const updatedPet = { 
+      ...selectedPet, 
+      ageYears: String(years), 
+      ageMonths: String(months),
+      qrCodeUrl: generateQRCode(selectedPet.name) // Regenerate in case name changed
+    };
     const updatedPets = pets.map(p => p.id === selectedPet.id ? updatedPet : p);
     savePetsToStorage(updatedPets);
     setSelectedPet(updatedPet);
@@ -176,25 +185,28 @@ const PetProfilePage: React.FC = () => {
     setTimeout(() => { setIsEditing(false); setSaveSuccess(false); }, 1500);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && selectedPet) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        const avatarUrl = reader.result as string;
-        const updatedPets = pets.map(p => p.id === selectedPet.id ? { ...p, avatarUrl } : p);
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        const updatedPet = { ...selectedPet, avatarUrl: base64 };
+        const updatedPets = pets.map(p => p.id === selectedPet.id ? updatedPet : p);
         savePetsToStorage(updatedPets);
-        setSelectedPet({ ...selectedPet, avatarUrl });
-        generateAIAvatar(avatarUrl);
+        setSelectedPet(updatedPet);
+        // Automatically ask to AI Enhance if requested
+        if (confirm("Would you like to generate a high-quality AI avatar based on this image?")) {
+            generateAIAvatar(base64);
+        }
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const generateAIAvatar = async (sourceImage?: string) => {
+  const generateAIAvatar = async (base64Source?: string) => {
     if (!selectedPet) return;
     
-    // Fixed: Checked for window.aistudio existence before use and used optional chaining.
     const hasKey = await window.aistudio?.hasSelectedApiKey();
     if (!hasKey) {
       setShowKeyRequirement(true);
@@ -203,18 +215,22 @@ const PetProfilePage: React.FC = () => {
 
     setIsGeneratingAvatar(true);
     try {
-      // Create new GoogleGenAI instance right before call as required.
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `A professional, high-quality 2K portrait of a ${selectedPet.breed} ${selectedPet.species} named ${selectedPet.name}. Cinematic lighting, adorable expression, soft-focus natural background.`;
+      const prompt = `A professional, high-quality, adorable avatar of a ${selectedPet.breed} ${selectedPet.species} named ${selectedPet.name}. Cinematic lighting, detailed fur/texture, clean background, 4K resolution.`;
       
+      const contents: any = { parts: [{ text: prompt }] };
+      if (base64Source) {
+          contents.parts.push({
+              inlineData: {
+                  data: base64Source.split(',')[1],
+                  mimeType: 'image/png'
+              }
+          });
+      }
+
       const response = await ai.models.generateContent({
         model: 'gemini-3-pro-image-preview',
-        contents: {
-          parts: [
-            { text: prompt },
-            ...(sourceImage ? [{ inlineData: { data: sourceImage.split(',')[1], mimeType: 'image/png' } }] : [])
-          ]
-        },
+        contents,
         config: {
           imageConfig: {
             aspectRatio: "1:1",
@@ -223,21 +239,26 @@ const PetProfilePage: React.FC = () => {
         }
       });
 
-      if (response.candidates?.[0]?.content?.parts) {
-        for (const part of response.candidates[0].content.parts) {
-          if (part.inlineData) {
-            const avatarUrl = `data:image/png;base64,${part.inlineData.data}`;
-            const updatedPets = pets.map(p => p.id === selectedPet.id ? { ...p, avatarUrl } : p);
-            savePetsToStorage(updatedPets);
-            setSelectedPet({ ...selectedPet, avatarUrl });
-            break;
-          }
+      let foundImage = false;
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          const avatarUrl = `data:image/png;base64,${part.inlineData.data}`;
+          const updatedPet = { ...selectedPet, avatarUrl };
+          const updatedPets = pets.map(p => p.id === selectedPet.id ? updatedPet : p);
+          savePetsToStorage(updatedPets);
+          setSelectedPet(updatedPet);
+          foundImage = true;
+          break;
         }
       }
+      if (!foundImage) throw new Error("No image data returned from AI.");
+
     } catch (err: any) {
-      console.error("Avatar Generation Error:", err);
+      console.error("AI Avatar Error:", err);
       if (err.message?.includes("Requested entity was not found")) {
         setShowKeyRequirement(true);
+      } else {
+          alert("Failed to generate AI avatar. Please try again.");
       }
     } finally {
       setIsGeneratingAvatar(false);
@@ -245,7 +266,6 @@ const PetProfilePage: React.FC = () => {
   };
 
   const handleConnectKey = async () => {
-    // Fixed: Using optional chaining for window.aistudio.
     await window.aistudio?.openSelectKey();
     setShowKeyRequirement(false);
   };
@@ -292,11 +312,11 @@ const PetProfilePage: React.FC = () => {
             onClick={() => { setSelectedPet(p); setIsAdding(false); setIsEditing(false); }}
             className={`flex flex-col items-center gap-3 p-4 rounded-[2.5rem] border-2 transition-all ${selectedPet?.id === p.id && !isAdding ? 'bg-theme-light border-theme scale-105 shadow-lg' : 'bg-white border-transparent hover:border-slate-200'}`}
           >
-            <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-inner bg-slate-50 flex items-center justify-center">
+            <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-inner bg-slate-100 flex items-center justify-center">
               {p.avatarUrl ? (
                 <img src={p.avatarUrl} className="w-full h-full object-cover" />
               ) : (
-                <div className="text-slate-200"><PawPrint size={24} /></div>
+                <PawPrint size={24} className="text-slate-200" />
               )}
             </div>
             <span className={`font-black text-xs uppercase tracking-widest ${selectedPet?.id === p.id && !isAdding ? 'text-theme' : 'text-slate-500'}`}>{p.name}</span>
@@ -342,13 +362,26 @@ const PetProfilePage: React.FC = () => {
                   </select>
                 </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Birthday</label>
-                <input type="date" required value={isAdding ? newPet.birthday : selectedPet?.birthday} onChange={e => isAdding ? setNewPet({ ...newPet, birthday: e.target.value }) : setSelectedPet({...selectedPet!, birthday: e.target.value})} className="w-full bg-slate-50 border border-slate-100 p-4 rounded-2xl outline-none ring-theme focus:ring-4 transition-all" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Birthday</label>
+                    <input 
+                      type="date" 
+                      required 
+                      value={isAdding ? newPet.birthday : selectedPet?.birthday} 
+                      onChange={e => isAdding ? setNewPet({ ...newPet, birthday: e.target.value }) : setSelectedPet({...selectedPet!, birthday: e.target.value})} 
+                      className="w-full bg-slate-50 border border-slate-100 p-4 rounded-2xl outline-none ring-theme focus:ring-4 transition-all" 
+                    />
+                  </div>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Short Biography</label>
-                <textarea value={isAdding ? newPet.bio : selectedPet?.bio} onChange={e => isAdding ? setNewPet({ ...newPet, bio: e.target.value }) : setSelectedPet({...selectedPet!, bio: e.target.value})} className="w-full h-32 bg-slate-50 border border-slate-100 p-4 rounded-2xl outline-none ring-theme focus:ring-4 transition-all resize-none" placeholder="Short bio..." />
+                <textarea 
+                  value={isAdding ? newPet.bio : selectedPet?.bio} 
+                  onChange={e => isAdding ? setNewPet({ ...newPet, bio: e.target.value }) : setSelectedPet({...selectedPet!, bio: e.target.value})} 
+                  className="w-full h-32 bg-slate-50 border border-slate-100 p-4 rounded-2xl outline-none ring-theme focus:ring-4 transition-all resize-none" 
+                  placeholder="Tell us about your pet's personality..." 
+                />
               </div>
               <button type="submit" className="w-full bg-theme text-white py-5 rounded-[2.5rem] font-black text-lg bg-theme-hover transition-all shadow-xl shadow-theme/20 flex items-center justify-center gap-3">
                 <Save size={20} /> {isAdding ? 'Register Pet' : 'Save Changes'}
@@ -367,32 +400,33 @@ const PetProfilePage: React.FC = () => {
                     {selectedPet.avatarUrl ? (
                       <img 
                         src={selectedPet.avatarUrl} 
-                        className={`w-full h-full object-cover ${isGeneratingAvatar ? 'opacity-30 grayscale' : ''}`} 
+                        className={`w-full h-full object-cover ${isGeneratingAvatar ? 'opacity-30 blur-sm grayscale' : ''}`} 
                         alt={selectedPet.name} 
                       />
                     ) : (
-                      <div className="text-slate-200"><Dog size={64} /></div>
+                      <Dog size={64} className="text-slate-200" />
                     )}
                     {isGeneratingAvatar && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Loader2 size={32} className="animate-spin text-theme" />
-                      </div>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/40">
+                            <Loader2 size={32} className="animate-spin text-theme mb-2" />
+                            <p className="text-[8px] font-black uppercase tracking-widest text-theme">AI Generating...</p>
+                        </div>
                     )}
                   </div>
                   <div className="absolute -bottom-2 -right-2 flex gap-2">
                     <button 
-                      onClick={() => fileInputRef.current?.click()} 
-                      className="w-12 h-12 bg-white rounded-2xl shadow-xl flex items-center justify-center text-slate-600 hover:text-theme transition-all border border-slate-50"
-                      title="Upload Photo"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-12 h-12 bg-white rounded-2xl shadow-xl flex items-center justify-center text-slate-600 hover:text-theme transition-all border border-slate-100"
+                        title="Upload Photo"
                     >
                       <Camera size={20} />
-                      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+                      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
                     </button>
                     <button 
-                      onClick={() => generateAIAvatar()} 
-                      disabled={isGeneratingAvatar} 
-                      className="w-12 h-12 bg-theme text-white rounded-2xl shadow-xl flex items-center justify-center bg-theme-hover transition-all disabled:opacity-50"
-                      title="AI Generate High-Quality Avatar"
+                        onClick={() => generateAIAvatar()}
+                        disabled={isGeneratingAvatar}
+                        className="w-12 h-12 bg-theme text-white rounded-2xl shadow-xl flex items-center justify-center bg-theme-hover transition-all disabled:opacity-50"
+                        title="Generate AI Avatar"
                     >
                       <Wand2 size={20} />
                     </button>
@@ -405,7 +439,7 @@ const PetProfilePage: React.FC = () => {
                       <Key size={20} />
                       <h4 className="font-black text-sm uppercase">Paid API Key Required</h4>
                     </div>
-                    <p className="text-xs text-amber-800 font-medium">To generate professional-grade 2K/4K avatars, you must select your own paid API key from a Google Cloud project.</p>
+                    <p className="text-xs text-amber-800 font-medium">To use high-quality AI avatar generation, you must select your own paid API key from a Google Cloud project.</p>
                     <button onClick={handleConnectKey} className="w-full bg-theme text-white py-3 rounded-xl font-bold text-xs uppercase shadow-lg shadow-theme/20">Connect Key</button>
                     <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="block text-[10px] font-bold text-theme hover:underline">View Billing Documentation</a>
                   </div>
@@ -414,6 +448,7 @@ const PetProfilePage: React.FC = () => {
                 <div className="space-y-1">
                   <h3 className="text-4xl font-black text-slate-900 tracking-tighter">{selectedPet.name}</h3>
                   <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">{selectedPet.breed} • {selectedPet.species}</p>
+                  <p className="text-xs font-black text-theme uppercase tracking-widest">{selectedPet.ageYears}y {selectedPet.ageMonths}m Old</p>
                 </div>
 
                 <div className="w-full p-4 bg-slate-50 rounded-[2rem] flex flex-col items-center gap-4 border border-slate-100/50">

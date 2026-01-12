@@ -149,7 +149,7 @@ export const updateUserProfile = async (uid: string, data: { displayName?: strin
     if (cleanedUsername.length < 3) throw new Error("Username must be at least 3 characters.");
     
     const taken = await isUsernameTaken(cleanedUsername, uid);
-    if (taken) throw new Error("That username is already taken by another pet parent.");
+    if (taken) throw new Error("Username is already taken.");
     firestoreData.username = cleanedUsername;
   }
   

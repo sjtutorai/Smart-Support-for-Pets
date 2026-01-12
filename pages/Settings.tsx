@@ -98,11 +98,13 @@ const Settings: React.FC = () => {
       addNotification('Profile Updated', 'Identity synced successfully.', 'success');
     } catch (error: any) {
       console.error("Profile update failed:", error);
-      setSaveStatus({ message: error.message || 'Update failed. Check your connection.', type: 'error' });
+      // Enhanced error handling for unique username
+      const msg = error.message?.includes("taken") ? "That username is already taken. Please try another." : (error.message || 'Update failed.');
+      setSaveStatus({ message: msg, type: 'error' });
     } finally {
       setIsSaving(false);
       if (!saveStatus || saveStatus.type === 'success') {
-        setTimeout(() => setSaveStatus(null), 3000);
+        setTimeout(() => setSaveStatus(null), 5000);
       }
     }
   };
