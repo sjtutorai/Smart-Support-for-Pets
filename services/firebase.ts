@@ -45,6 +45,7 @@ export const db = getFirestore(app);
  * Checks if a username is already taken by a different user.
  */
 export const isUsernameTaken = async (username: string, excludeUid: string) => {
+  if (!username) return false;
   const q = query(
     collection(db, "users"), 
     where("username", "==", username.toLowerCase().trim()), 
@@ -142,8 +143,11 @@ export const updateUserProfile = async (uid: string, data: { displayName?: strin
 
   const userRef = doc(db, "users", uid);
   const firestoreData: any = { ...data };
+  
   if (data.username) {
-    const cleanedUsername = data.username.toLowerCase().replace(/\s/g, '');
+    const cleanedUsername = data.username.toLowerCase().replace(/\s/g, '').trim();
+    if (cleanedUsername.length < 3) throw new Error("Username must be at least 3 characters.");
+    
     const taken = await isUsernameTaken(cleanedUsername, uid);
     if (taken) throw new Error("That username is already taken by another pet parent.");
     firestoreData.username = cleanedUsername;

@@ -30,15 +30,14 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <Layout>{children}</Layout>;
 };
 
-// Fixed: Corrected global declaration for aistudio to resolve type mismatch and modifier errors.
-// Using a named interface that matches the expected global type name 'AIStudio'.
 declare global {
   interface AIStudio {
     hasSelectedApiKey: () => Promise<boolean>;
     openSelectKey: () => Promise<void>;
   }
   interface Window {
-    aistudio: AIStudio;
+    // Fixed: Added optional modifier to match the existing global declaration and resolve the "identical modifiers" error.
+    aistudio?: AIStudio;
   }
 }
 
@@ -177,10 +176,26 @@ const PetProfilePage: React.FC = () => {
     setTimeout(() => { setIsEditing(false); setSaveSuccess(false); }, 1500);
   };
 
-  const generateAIAvatar = async () => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && selectedPet) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const avatarUrl = reader.result as string;
+        const updatedPets = pets.map(p => p.id === selectedPet.id ? { ...p, avatarUrl } : p);
+        savePetsToStorage(updatedPets);
+        setSelectedPet({ ...selectedPet, avatarUrl });
+        generateAIAvatar(avatarUrl);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const generateAIAvatar = async (sourceImage?: string) => {
     if (!selectedPet) return;
     
-    const hasKey = await window.aistudio.hasSelectedApiKey();
+    // Fixed: Checked for window.aistudio existence before use and used optional chaining.
+    const hasKey = await window.aistudio?.hasSelectedApiKey();
     if (!hasKey) {
       setShowKeyRequirement(true);
       return;
@@ -188,12 +203,18 @@ const PetProfilePage: React.FC = () => {
 
     setIsGeneratingAvatar(true);
     try {
+      // Create new GoogleGenAI instance right before call as required.
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `A professional, high-quality 2K portrait of a ${selectedPet.breed} ${selectedPet.species} named ${selectedPet.name}. Cinematic lighting, adorable expression, soft-focus natural background.`;
       
       const response = await ai.models.generateContent({
         model: 'gemini-3-pro-image-preview',
-        contents: { parts: [{ text: prompt }] },
+        contents: {
+          parts: [
+            { text: prompt },
+            ...(sourceImage ? [{ inlineData: { data: sourceImage.split(',')[1], mimeType: 'image/png' } }] : [])
+          ]
+        },
         config: {
           imageConfig: {
             aspectRatio: "1:1",
@@ -202,13 +223,16 @@ const PetProfilePage: React.FC = () => {
         }
       });
 
-      const part = response.candidates?.[0]?.content?.parts.find(p => p.inlineData);
-      if (part?.inlineData) {
-        const base64EncodeString: string = part.inlineData.data;
-        const avatarUrl = `data:image/png;base64,${base64EncodeString}`;
-        const updatedPets = pets.map(p => p.id === selectedPet.id ? { ...p, avatarUrl } : p);
-        savePetsToStorage(updatedPets);
-        setSelectedPet({ ...selectedPet, avatarUrl });
+      if (response.candidates?.[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData) {
+            const avatarUrl = `data:image/png;base64,${part.inlineData.data}`;
+            const updatedPets = pets.map(p => p.id === selectedPet.id ? { ...p, avatarUrl } : p);
+            savePetsToStorage(updatedPets);
+            setSelectedPet({ ...selectedPet, avatarUrl });
+            break;
+          }
+        }
       }
     } catch (err: any) {
       console.error("Avatar Generation Error:", err);
@@ -221,9 +245,9 @@ const PetProfilePage: React.FC = () => {
   };
 
   const handleConnectKey = async () => {
-    await window.aistudio.openSelectKey();
+    // Fixed: Using optional chaining for window.aistudio.
+    await window.aistudio?.openSelectKey();
     setShowKeyRequirement(false);
-    generateAIAvatar();
   };
 
   const handleAddWeight = () => {
@@ -362,9 +386,10 @@ const PetProfilePage: React.FC = () => {
                       title="Upload Photo"
                     >
                       <Camera size={20} />
+                      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                     </button>
                     <button 
-                      onClick={generateAIAvatar} 
+                      onClick={() => generateAIAvatar()} 
                       disabled={isGeneratingAvatar} 
                       className="w-12 h-12 bg-theme text-white rounded-2xl shadow-xl flex items-center justify-center bg-theme-hover transition-all disabled:opacity-50"
                       title="AI Generate High-Quality Avatar"
