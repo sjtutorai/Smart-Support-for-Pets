@@ -67,14 +67,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
       `}>
         {/* Dynamic Theme Background applied here */}
         <div className={`h-20 flex items-center justify-between px-6 flex-shrink-0 transition-all duration-500 transition-theme ${!isCollapsed || isOpen ? 'bg-theme' : 'bg-white border-b border-slate-50'}`}>
-          <div className={`flex items-center gap-4 overflow-hidden transition-all duration-500 ${isCollapsed && !isOpen ? 'md:justify-center w-full' : ''}`}>
+          <Link 
+            to={AppRoutes.HOME}
+            className={`flex items-center gap-4 overflow-hidden transition-all duration-500 hover:opacity-90 active:scale-95 ${isCollapsed && !isOpen ? 'md:justify-center w-full' : ''}`}
+          >
             <div className={`w-10 h-10 rounded-xl flex-shrink-0 shadow-lg flex items-center justify-center transition-all duration-500 ${!isCollapsed || isOpen ? 'bg-white rotate-0' : 'bg-theme rotate-12'}`}>
               <img src={LOGO_URL} alt="Logo" className="w-8 h-8 object-contain" />
             </div>
             {(!isCollapsed || isOpen) && (
               <span className="font-black text-white whitespace-nowrap tracking-tight text-sm">Smart Support for Pets</span>
             )}
-          </div>
+          </Link>
           
           <button 
             onClick={() => setIsOpen(false)}
