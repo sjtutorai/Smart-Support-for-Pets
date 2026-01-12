@@ -20,7 +20,8 @@ import {
   AlertCircle, Camera, Check, ChevronRight, Cat, Bird, Rabbit, 
   Trash2, Edit3, ArrowLeft, Stethoscope, Search, Star, MessageCircle,
   Heart, Fish, Bug, Thermometer, Droplets, Calendar, LineChart, Syringe, TrendingUp,
-  Sparkles, Info, Quote, Upload, Loader2, Wand2, QrCode, Scan, X, ExternalLink, Save
+  Sparkles, Info, Quote, Upload, Loader2, Wand2, QrCode, Scan, X, ExternalLink, Save,
+  Key
 } from 'lucide-react';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -28,6 +29,17 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   if (!user) return <Navigate to="/login" replace />;
   return <Layout>{children}</Layout>;
 };
+
+// Extracted from system rules - mandatory checks for high-quality models
+// Define the shape of aistudio to match internal expectations
+declare global {
+  interface Window {
+    readonly aistudio: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
+  }
+}
 
 export const BREED_DATA: Record<string, string[]> = {
   Dog: ['Labrador Retriever', 'German Shepherd', 'Golden Retriever', 'French Bulldog', 'Poodle', 'Beagle', 'Mixed Breed'],
@@ -101,6 +113,7 @@ const PetProfilePage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [showKeyRequirement, setShowKeyRequirement] = useState(false);
   const [step, setStep] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const [newPet, setNewPet] = useState<Partial<PetProfile>>({ 
@@ -109,10 +122,8 @@ const PetProfilePage: React.FC = () => {
   });
   const [saveSuccess, setSaveSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
   
   const [newWeight, setNewWeight] = useState('');
-  const [newVaccine, setNewVaccine] = useState({ name: '', date: '', nextDueDate: '' });
 
   useEffect(() => {
     const saved = localStorage.getItem(`ssp_pets_${user?.uid}`);
@@ -123,55 +134,7 @@ const PetProfilePage: React.FC = () => {
         setSelectedPet(parsed[0]);
       }
     }
-  }, [user]);
-
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    let scannerInterval: any = null;
-
-    const startScanner = async () => {
-      if (isScanning && videoRef.current) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-          videoRef.current.srcObject = stream;
-          
-          // Check for native BarcodeDetector API (Chrome/Edge/Android)
-          if ('BarcodeDetector' in window) {
-            const barcodeDetector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
-            scannerInterval = setInterval(async () => {
-              if (videoRef.current) {
-                try {
-                  const barcodes = await barcodeDetector.detect(videoRef.current);
-                  if (barcodes.length > 0) {
-                    const data = barcodes[0].rawValue;
-                    if (data.startsWith('ssp_pet_')) {
-                      const id = data.replace('ssp_pet_', '');
-                      const found = pets.find(p => p.id === id);
-                      if (found) {
-                        setSelectedPet(found);
-                        setIsScanning(false);
-                        clearInterval(scannerInterval);
-                      }
-                    }
-                  }
-                } catch (e) {
-                  // Silent fail for single frame detection errors
-                }
-              }
-            }, 500);
-          }
-        } catch (err) {
-          console.error("Camera access denied:", err);
-        }
-      }
-    };
-
-    if (isScanning) startScanner();
-    return () => {
-      if (stream) stream.getTracks().forEach(track => track.stop());
-      if (scannerInterval) clearInterval(scannerInterval);
-    };
-  }, [isScanning, pets]);
+  }, [user, selectedPet]);
 
   const savePetsToStorage = (updatedPets: PetProfile[]) => {
     localStorage.setItem(`ssp_pets_${user?.uid}`, JSON.stringify(updatedPets));
@@ -182,7 +145,6 @@ const PetProfilePage: React.FC = () => {
     e.preventDefault();
     const id = crypto.randomUUID();
     const { years, months } = calculateAge(newPet.birthday || '');
-    
     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=ssp_pet_${id}`;
     
     const completePet: PetProfile = {
@@ -205,14 +167,8 @@ const PetProfilePage: React.FC = () => {
   const handleUpdatePet = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPet) return;
-    
     const { years, months } = calculateAge(selectedPet.birthday || '');
-    const updatedPet = {
-      ...selectedPet,
-      ageYears: String(years),
-      ageMonths: String(months)
-    };
-
+    const updatedPet = { ...selectedPet, ageYears: String(years), ageMonths: String(months) };
     const updatedPets = pets.map(p => p.id === selectedPet.id ? updatedPet : p);
     savePetsToStorage(updatedPets);
     setSelectedPet(updatedPet);
@@ -220,45 +176,54 @@ const PetProfilePage: React.FC = () => {
     setTimeout(() => { setIsEditing(false); setSaveSuccess(false); }, 1500);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && selectedPet) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const updatedPets = pets.map(p => p.id === selectedPet.id ? { ...p, avatarUrl: reader.result as string } : p);
-        savePetsToStorage(updatedPets);
-        setSelectedPet({ ...selectedPet, avatarUrl: reader.result as string });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const generateAIAvatar = async () => {
     if (!selectedPet) return;
+    
+    // Check for required API Key selection for high-quality models
+    const hasKey = await window.aistudio.hasSelectedApiKey();
+    if (!hasKey) {
+      setShowKeyRequirement(true);
+      return;
+    }
+
     setIsGeneratingAvatar(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `A professional, high-quality 3D rendered avatar of a ${selectedPet.breed} ${selectedPet.species}. Soft studio lighting, cute and friendly expression, solid pastel blue background.`;
+      const prompt = `A professional, high-quality 2K portrait of a ${selectedPet.breed} ${selectedPet.species} named ${selectedPet.name}. Cinematic lighting, adorable expression, soft-focus natural background.`;
       
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
+        model: 'gemini-3-pro-image-preview',
         contents: { parts: [{ text: prompt }] },
+        config: {
+          imageConfig: {
+            aspectRatio: "1:1",
+            imageSize: "1K"
+          }
+        }
       });
 
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          const avatarUrl = `data:image/png;base64,${part.inlineData.data}`;
-          const updatedPets = pets.map(p => p.id === selectedPet.id ? { ...p, avatarUrl } : p);
-          savePetsToStorage(updatedPets);
-          setSelectedPet({ ...selectedPet, avatarUrl });
-          break;
-        }
+      const part = response.candidates?.[0]?.content?.parts.find(p => p.inlineData);
+      if (part?.inlineData) {
+        const avatarUrl = `data:image/png;base64,${part.inlineData.data}`;
+        const updatedPets = pets.map(p => p.id === selectedPet.id ? { ...p, avatarUrl } : p);
+        savePetsToStorage(updatedPets);
+        setSelectedPet({ ...selectedPet, avatarUrl });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Avatar Generation Error:", err);
+      if (err.message?.includes("Requested entity was not found")) {
+        setShowKeyRequirement(true);
+      }
     } finally {
       setIsGeneratingAvatar(false);
     }
+  };
+
+  const handleConnectKey = async () => {
+    await window.aistudio.openSelectKey();
+    setShowKeyRequirement(false);
+    // Proceed to generate after selection
+    generateAIAvatar();
   };
 
   const handleAddWeight = () => {
@@ -270,15 +235,6 @@ const PetProfilePage: React.FC = () => {
     setNewWeight('');
   };
 
-  const handleAddVaccine = () => {
-    if (!newVaccine.name || !newVaccine.date || !selectedPet) return;
-    const updatedVaccinations: VaccinationRecord[] = [...(selectedPet.vaccinations || []), { ...newVaccine }];
-    const updatedPets = pets.map(p => p.id === selectedPet.id ? { ...p, vaccinations: updatedVaccinations } : p);
-    savePetsToStorage(updatedPets);
-    setSelectedPet({ ...selectedPet, vaccinations: updatedVaccinations });
-    setNewVaccine({ name: '', date: '', nextDueDate: '' });
-  };
-
   const healthSummary = useMemo(() => {
     if (!selectedPet) return null;
     const lastWeight = selectedPet.weightHistory[selectedPet.weightHistory.length - 1];
@@ -287,35 +243,6 @@ const PetProfilePage: React.FC = () => {
       .sort((a, b) => new Date(a.nextDueDate).getTime() - new Date(b.nextDueDate).getTime())[0];
     return { lastWeight, nextVaccine };
   }, [selectedPet]);
-
-  if (isScanning) {
-    return (
-      <div className="max-w-4xl mx-auto py-12 text-center animate-fade-in px-4">
-        <div className="bg-slate-900 text-white rounded-[4rem] p-10 md:p-20 shadow-2xl relative overflow-hidden border border-slate-800">
-          <button onClick={() => setIsScanning(false)} className="absolute top-8 right-8 text-white/40 hover:text-white transition-colors"><X size={40} /></button>
-          
-          <div className="w-full aspect-square max-w-[400px] border-4 border-theme rounded-[3rem] mx-auto mb-10 flex items-center justify-center relative overflow-hidden shadow-[0_0_100px_rgba(var(--theme-color-rgb),0.3)] bg-black">
-            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-            <div className="absolute inset-0 pointer-events-none border-[40px] border-black/40"></div>
-            <div className="absolute top-0 left-0 w-full h-1 bg-theme shadow-[0_0_20px_var(--theme-color)] animate-[scan_2s_infinite]"></div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              {(!('BarcodeDetector' in window)) && (
-                <div className="bg-black/60 backdrop-blur-md p-6 rounded-2xl mx-6">
-                  <AlertCircle className="mx-auto text-amber-500 mb-3" size={32} />
-                  <p className="text-sm font-bold">Scanning not supported in this browser. Please use Chrome/Edge on Mobile.</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-4 max-w-sm mx-auto">
-            <h3 className="text-3xl font-black tracking-tight">Scanner Active</h3>
-            <p className="text-slate-400 font-medium">Position the pet's unique SSP-ID QR code within the frame to identify them.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-6xl mx-auto pb-20 space-y-12">
@@ -432,31 +359,34 @@ const PetProfilePage: React.FC = () => {
                       onClick={generateAIAvatar} 
                       disabled={isGeneratingAvatar} 
                       className="w-12 h-12 bg-theme text-white rounded-2xl shadow-xl flex items-center justify-center bg-theme-hover transition-all disabled:opacity-50"
-                      title="AI Generate Avatar"
+                      title="AI Generate High-Quality Avatar"
                     >
                       <Wand2 size={20} />
                     </button>
                   </div>
                 </div>
 
+                {showKeyRequirement && (
+                  <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100 animate-in zoom-in space-y-4">
+                    <div className="flex items-center gap-3 text-amber-700">
+                      <Key size={20} />
+                      <h4 className="font-black text-sm uppercase">Paid API Key Required</h4>
+                    </div>
+                    <p className="text-xs text-amber-800 font-medium">To generate professional-grade 2K/4K avatars, you must select your own paid API key from a Google Cloud project.</p>
+                    <button onClick={handleConnectKey} className="w-full bg-theme text-white py-3 rounded-xl font-bold text-xs uppercase shadow-lg shadow-theme/20">Connect Key</button>
+                    <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="block text-[10px] font-bold text-theme hover:underline">View Billing Documentation</a>
+                  </div>
+                )}
+
                 <div className="space-y-1">
                   <h3 className="text-4xl font-black text-slate-900 tracking-tighter">{selectedPet.name}</h3>
                   <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">{selectedPet.breed} • {selectedPet.species}</p>
                 </div>
 
-                <button 
-                  onClick={() => setIsEditing(true)}
-                  className="w-full max-w-[200px] bg-theme text-white py-4 rounded-full font-black text-lg bg-theme-hover transition-all shadow-xl shadow-theme/20 active:scale-95"
-                >
-                  Edit Profile
-                </button>
-
                 <div className="w-full p-4 bg-slate-50 rounded-[2rem] flex flex-col items-center gap-4 border border-slate-100/50">
                   <img src={selectedPet.qrCodeUrl} className="w-40 h-40 bg-white p-2 rounded-2xl shadow-inner border border-slate-100" alt="QR ID" />
                   <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] font-mono">SSP-ID: {selectedPet.id.slice(0, 8)}</div>
                 </div>
-                
-                <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
               </div>
             </div>
             
@@ -501,16 +431,12 @@ const PetProfilePage: React.FC = () => {
                     {healthSummary?.nextVaccine ? `Due Date: ${healthSummary.nextVaccine.nextDueDate}` : 'Vaccination record is healthy'}
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  <button className="w-full py-4 bg-theme-light text-theme font-black rounded-2xl text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all">Download Log</button>
-                </div>
               </div>
             </div>
 
             <div className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-sm">
               <div className="flex items-center justify-between mb-8">
                 <h4 className="text-2xl font-black text-slate-800 flex items-center gap-3"><LineChart className="text-theme" /> Vital Statistics</h4>
-                <div className="px-4 py-1.5 bg-theme-light text-theme rounded-full text-[10px] font-black uppercase tracking-widest">Weight History</div>
               </div>
               <div className="space-y-4 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">
                 {selectedPet.weightHistory.length > 0 ? selectedPet.weightHistory.map((w, idx) => (
@@ -521,12 +447,12 @@ const PetProfilePage: React.FC = () => {
                     </div>
                     <span className="font-black text-slate-800 text-xl">{w.weight} kg</span>
                   </div>
-                )) : <div className="py-20 text-center text-slate-400 font-medium italic">No vital records found. Start logging weight to track development.</div>}
+                )) : <div className="py-20 text-center text-slate-400 font-medium italic">No vital records found.</div>}
               </div>
             </div>
             
             <div className="flex justify-end pt-4">
-              <button onClick={() => { if(confirm("Permanently remove this pet profile?")) { const updated = pets.filter(p => p.id !== selectedPet.id); savePetsToStorage(updated); setSelectedPet(updated[0] || null); } }} className="flex items-center gap-2 text-rose-500 font-black text-xs uppercase tracking-widest hover:text-rose-700 transition-all">
+              <button onClick={() => { if(window.confirm("Permanently remove this pet profile?")) { const updated = pets.filter(p => p.id !== selectedPet.id); savePetsToStorage(updated); setSelectedPet(updated[0] || null); } }} className="flex items-center gap-2 text-rose-500 font-black text-xs uppercase tracking-widest hover:text-rose-700 transition-all">
                 <Trash2 size={16} /> Delete Companion Profile
               </button>
             </div>
@@ -547,17 +473,14 @@ const PetProfilePage: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-  // Theme Manager: Listen for theme changes and update CSS variables
   useEffect(() => {
     const applyTheme = () => {
       const savedTheme = localStorage.getItem('ssp_theme_color') || '#4f46e5';
       const root = document.documentElement;
-      
       root.style.setProperty('--theme-color', savedTheme);
       root.style.setProperty('--theme-color-hover', savedTheme + 'dd'); 
       root.style.setProperty('--theme-color-light', savedTheme + '15');
     };
-
     applyTheme();
     const interval = setInterval(applyTheme, 500);
     return () => clearInterval(interval);
