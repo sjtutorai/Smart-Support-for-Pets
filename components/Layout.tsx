@@ -42,7 +42,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { notifications, unreadCount, markAsRead, clearAll } = useNotifications();
   const notifRef = useRef<HTMLDivElement>(null);
 
-  const LOGO_URL = "https://res.cloudinary.com/dazlddxht/image/upload/v1768111415/Smart_Support_for_Pets_tpteed.png";
+  const LOGO_URL = "https://res.cloudinary.com/dazlddxht/image/upload/v1768234409/SS_Paw_Pal_Logo_aceyn8.png";
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
