@@ -11,13 +11,11 @@ import {
   AtSign, 
   Phone, 
   Palette,
-  Plus,
-  Mail
+  Plus
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
-import { logout, db, updateUserProfile } from '../services/firebase';
-import { useNavigate } from "react-router-dom";
+import { db, updateUserProfile } from '../services/firebase';
 import { doc, getDoc } from "firebase/firestore";
 
 const THEME_PRESETS = [
@@ -33,7 +31,6 @@ const THEME_PRESETS = [
 const Settings: React.FC = () => {
   const { user } = useAuth();
   const { addNotification } = useNotifications();
-  const navigate = useNavigate();
   
   const [dbUser, setDbUser] = useState<any>(null);
   const [saveStatus, setSaveStatus] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
@@ -41,7 +38,6 @@ const Settings: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('ssp_theme_color') || '#4f46e5');
   
-  // Form State initialized with Auth data as fallback
   const [editData, setEditData] = useState({
     displayName: user?.displayName || '',
     username: '',
@@ -62,13 +58,6 @@ const Settings: React.FC = () => {
               username: data.username || '',
               phoneNumber: data.phoneNumber || ''
             });
-          } else {
-            // Initializing if DB record is missing
-            setEditData(prev => ({
-              ...prev,
-              displayName: user.displayName || '',
-              username: user.displayName?.toLowerCase().replace(/\s/g, '') || user.uid.slice(0, 8)
-            }));
           }
         } catch (e) {
           console.error("Error fetching user settings:", e);
@@ -106,12 +95,15 @@ const Settings: React.FC = () => {
       
       setSaveStatus({ message: 'Profile updated successfully!', type: 'success' });
       setIsEditing(false);
-      addNotification('Profile Updated', 'Your identity has been saved.', 'success');
+      addNotification('Profile Updated', 'Identity synced successfully.', 'success');
     } catch (error: any) {
       console.error("Profile update failed:", error);
-      setSaveStatus({ message: error.message || 'Failed to save. Check your connection.', type: 'error' });
+      setSaveStatus({ message: error.message || 'Update failed. Check your connection.', type: 'error' });
     } finally {
       setIsSaving(false);
+      if (!saveStatus || saveStatus.type === 'success') {
+        setTimeout(() => setSaveStatus(null), 3000);
+      }
     }
   };
 
@@ -134,52 +126,52 @@ const Settings: React.FC = () => {
       </div>
 
       <div className="space-y-10">
-        {/* Main Content Area - Visual Match for User Screenshot */}
+        {/* Main Card - Visual Match for User Screenshot */}
         <div className="bg-white rounded-[4rem] p-10 md:p-20 border border-slate-50 shadow-2xl space-y-16 relative overflow-hidden transition-all duration-700">
-          <div className="flex flex-col md:flex-row items-center justify-center md:items-center gap-16 md:gap-24">
+          <div className="flex flex-col lg:flex-row items-center justify-center lg:items-start gap-16 lg:gap-24">
             
-            {/* Avatar Squircle with Soft Glow */}
-            <div className="relative group">
-              <div className="w-48 h-48 rounded-[3.5rem] bg-theme-light flex items-center justify-center overflow-hidden border-4 border-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] transition-all duration-500 group-hover:scale-105">
+            {/* Avatar Squircle */}
+            <div className="relative group shrink-0">
+              <div className="w-56 h-56 rounded-[3.5rem] bg-theme-light flex items-center justify-center overflow-hidden border-4 border-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] transition-all duration-500 group-hover:scale-105">
                 {user?.photoURL ? (
                   <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                  <UserIcon size={80} className="text-theme opacity-20" />
+                  <UserIcon size={96} className="text-theme opacity-20" />
                 )}
                 {isEditing && (
                   <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                    <Edit3 size={28} className="text-white" />
+                    <Edit3 size={32} className="text-white" />
                   </div>
                 )}
               </div>
               {!isEditing && (
                 <button 
                   onClick={() => setIsEditing(true)}
-                  className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-white px-6 py-2.5 rounded-full shadow-xl border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-theme transition-all whitespace-nowrap"
+                  className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-white px-8 py-3 rounded-full shadow-xl border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-theme transition-all whitespace-nowrap active:scale-95"
                 >
-                  Edit Identity
+                  Edit Profile
                 </button>
               )}
             </div>
 
-            {/* Input Fields Area */}
-            <div className="flex-1 w-full max-w-lg space-y-10">
-              <div className="space-y-8">
-                {/* Full Name Field */}
+            {/* Fields Area */}
+            <div className="flex-1 w-full max-w-xl space-y-12">
+              <div className="space-y-10">
+                {/* Full Name */}
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Full Name</label>
                   <input 
                     readOnly={!isEditing}
                     value={isEditing ? editData.displayName : (dbUser?.displayName || user?.displayName || '')}
                     onChange={(e) => setEditData({...editData, displayName: e.target.value})}
-                    placeholder="Enter your full name"
+                    placeholder="e.g. Sadanand Jyoti"
                     className={`w-full p-6 rounded-[1.5rem] text-lg font-bold text-slate-800 outline-none transition-all ${
                       isEditing ? 'bg-slate-50 border border-slate-200 focus:bg-white focus:ring-4 ring-theme/10' : 'bg-slate-50/50 border-transparent cursor-default'
                     }`}
                   />
                 </div>
 
-                {/* Username Field */}
+                {/* Unique Handle */}
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Unique Handle</label>
                   <div className="relative">
@@ -190,7 +182,7 @@ const Settings: React.FC = () => {
                       readOnly={!isEditing}
                       value={isEditing ? editData.username : (dbUser?.username || '')}
                       onChange={(e) => setEditData({...editData, username: e.target.value.toLowerCase().replace(/\s/g, '')})}
-                      placeholder="username"
+                      placeholder="ssj@2011"
                       className={`w-full p-6 pl-14 rounded-[1.5rem] text-lg font-bold text-slate-800 outline-none transition-all ${
                         isEditing ? 'bg-slate-50 border border-slate-200 focus:bg-white focus:ring-4 ring-theme/10' : 'bg-slate-50/50 border-transparent cursor-default'
                       }`}
@@ -198,7 +190,7 @@ const Settings: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Phone Number Field */}
+                {/* Phone Number - Accepts any format e.g. +91 */}
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Phone Number (Public Context)</label>
                   <div className="relative">
@@ -209,7 +201,7 @@ const Settings: React.FC = () => {
                       readOnly={!isEditing}
                       value={isEditing ? editData.phoneNumber : (dbUser?.phoneNumber || '')}
                       onChange={(e) => setEditData({...editData, phoneNumber: e.target.value})}
-                      placeholder="Not set"
+                      placeholder="+91 8105423488"
                       className={`w-full p-6 pl-14 rounded-[1.5rem] text-lg font-bold text-slate-800 outline-none transition-all ${
                         isEditing ? 'bg-slate-50 border border-slate-200 focus:bg-white focus:ring-4 ring-theme/10' : 'bg-slate-50/50 border-transparent cursor-default'
                       }`}
@@ -218,21 +210,21 @@ const Settings: React.FC = () => {
                 </div>
               </div>
 
-              {/* Action Buttons Row */}
+              {/* Capsule Action Buttons */}
               {isEditing && (
-                <div className="flex flex-col sm:flex-row gap-4 pt-6 animate-in slide-in-from-bottom-4 duration-500">
+                <div className="flex flex-col sm:flex-row gap-4 pt-4 animate-in slide-in-from-bottom-4 duration-500">
                   <button 
                     onClick={handleSaveProfile}
                     disabled={isSaving}
-                    className="flex-[2] bg-theme text-white py-6 rounded-[1.5rem] font-black text-xl bg-theme-hover transition-all shadow-[0_20px_40px_-10px_rgba(0,0,0,0.3)] active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
+                    className="flex-[2] bg-theme text-white py-6 rounded-full font-black text-xl bg-theme-hover transition-all shadow-[0_20px_40px_-10px_rgba(var(--theme-color-rgb),0.3)] active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
                   >
                     {isSaving ? <Loader2 size={24} className="animate-spin" /> : <Save size={24} />}
-                    {isSaving ? 'Updating...' : 'Save Changes'}
+                    {isSaving ? 'Saving...' : 'Save Changes'}
                   </button>
                   <button 
                     onClick={() => setIsEditing(false)}
                     disabled={isSaving}
-                    className="flex-1 bg-slate-100 text-slate-500 py-6 rounded-[1.5rem] font-black text-xl hover:bg-slate-200 transition-all active:scale-95"
+                    className="flex-1 bg-slate-100 text-slate-500 py-6 rounded-full font-black text-xl hover:bg-slate-200 transition-all active:scale-95"
                   >
                     Cancel
                   </button>
@@ -242,15 +234,15 @@ const Settings: React.FC = () => {
           </div>
         </div>
 
-        {/* Theme Personalization Section */}
+        {/* Theme Picker */}
         <div className="bg-white rounded-[3.5rem] p-10 md:p-14 border border-slate-100 shadow-sm space-y-10">
           <div className="flex items-center gap-5">
             <div className="p-4 bg-theme-light text-theme rounded-[2rem] transition-theme shadow-sm">
               <Palette size={28} />
             </div>
             <div>
-              <h3 className="text-3xl font-black text-slate-900 tracking-tight">App Aesthetics</h3>
-              <p className="text-slate-500 font-medium">Customize the primary visual theme of your workspace.</p>
+              <h3 className="text-3xl font-black text-slate-900 tracking-tight">App Personalization</h3>
+              <p className="text-slate-500 font-medium">Customize your primary workspace theme.</p>
             </div>
           </div>
 

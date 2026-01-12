@@ -54,7 +54,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
   return (
     <>
       <div 
-        className={`fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 transition-opacity duration-500 md:hidden ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-40 transition-opacity duration-500 md:hidden ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setIsOpen(false)}
       />
 
@@ -65,11 +65,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
         ${isCollapsed ? 'md:w-24' : 'md:w-72'}
         w-72 flex flex-col border-r border-slate-100
       `}>
-        {/* Dynamic Theme Background applied here */}
         <div className={`h-20 flex items-center justify-between px-6 flex-shrink-0 transition-all duration-500 transition-theme ${!isCollapsed || isOpen ? 'bg-theme' : 'bg-white border-b border-slate-50'}`}>
           <Link 
             to={AppRoutes.HOME}
-            className={`flex items-center gap-4 overflow-hidden transition-all duration-500 hover:opacity-90 active:scale-95 ${isCollapsed && !isOpen ? 'md:justify-center w-full' : ''}`}
+            className={`flex items-center gap-4 overflow-hidden transition-all duration-500 hover:opacity-95 active:scale-95 ${isCollapsed && !isOpen ? 'md:justify-center w-full' : ''}`}
           >
             <div className={`w-10 h-10 rounded-xl flex-shrink-0 shadow-lg flex items-center justify-center transition-all duration-500 ${!isCollapsed || isOpen ? 'bg-white rotate-0' : 'bg-theme rotate-12'}`}>
               <img src={LOGO_URL} alt="Logo" className="w-8 h-8 object-contain" />
@@ -115,13 +114,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
                   <span className="text-sm font-bold tracking-tight">{item.label}</span>
                 )}
                 
-                {isCollapsed && !isOpen && (
-                   <div className="absolute left-20 bg-slate-900 text-white px-3 py-2 rounded-xl text-xs font-bold opacity-0 group-hover:opacity-100 pointer-events-none transition-all translate-x-4 group-hover:translate-x-0 hidden md:block z-[60] whitespace-nowrap shadow-2xl">
-                    {item.label}
-                    <div className="absolute left-[-4px] top-1/2 -translate-y-1/2 border-8 border-transparent border-r-slate-900"></div>
-                   </div>
-                )}
-
                 {isActive && (
                   <div className="absolute left-0 w-1 h-8 bg-theme rounded-r-full"></div>
                 )}
@@ -141,12 +133,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
           >
             <LogOut size={22} className="text-slate-400 group-hover:text-rose-500 transition-all duration-300 group-hover:-translate-x-1" />
             {(!isCollapsed || isOpen) && <span className="text-sm font-bold">Sign Out</span>}
-            {isCollapsed && !isOpen && (
-              <div className="absolute left-20 bg-rose-600 text-white px-3 py-2 rounded-xl text-xs font-bold opacity-0 group-hover:opacity-100 pointer-events-none transition-all translate-x-4 group-hover:translate-x-0 hidden md:block z-[60] whitespace-nowrap shadow-2xl">
-                Sign Out
-                <div className="absolute left-[-4px] top-1/2 -translate-y-1/2 border-8 border-transparent border-r-rose-600"></div>
-              </div>
-            )}
           </button>
         </div>
       </aside>

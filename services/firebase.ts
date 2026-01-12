@@ -62,7 +62,6 @@ export const syncUserToDb = async (user: FirebaseUser, extraData: any = {}) => {
     return data;
   } catch (err) {
     console.error("Firestore sync failed:", err);
-    // Even if firestore fails, we return the data object for local UI state
     return data;
   }
 };
@@ -127,6 +126,7 @@ export const updateUserProfile = async (uid: string, data: { displayName?: strin
   if (data.username) firestoreData.username = data.username.toLowerCase().replace(/\s/g, '');
   
   try {
+    // Crucial: setDoc with merge: true ensures document exists and avoids update errors.
     await setDoc(userRef, firestoreData, { merge: true });
     if (data.displayName) {
       await updateProfile(user, { displayName: data.displayName });
@@ -139,32 +139,52 @@ export const updateUserProfile = async (uid: string, data: { displayName?: strin
   }
 };
 
-export const startChat = async (currentUid: string, targetUid: string) => {
-  if (currentUid === targetUid) return null;
-  const chatId = [currentUid, targetUid].sort().join('_');
-  const chatRef = doc(db, "chats", chatId);
-  const chatSnap = await getDoc(chatRef);
+/**
+ * Starts a new chat session or returns an existing one between two users.
+ * Used for direct messaging in the community feed.
+ */
+export const startChat = async (currentUserId: string, targetUserId: string) => {
+  const chatsRef = collection(db, "chats");
+  
+  // Check if a chat session between these two users already exists
+  const q = query(chatsRef, where("participants", "array-contains", currentUserId));
+  const querySnapshot = await getDocs(q);
+  
+  let existingChatId = "";
+  querySnapshot.forEach(doc => {
+    const data = doc.data();
+    if (data.participants && data.participants.includes(targetUserId)) {
+      existingChatId = doc.id;
+    }
+  });
 
-  if (!chatSnap.exists()) {
-    await setDoc(chatRef, {
-      participants: [currentUid, targetUid],
-      createdAt: serverTimestamp(),
-      lastMessage: "",
-      lastTimestamp: serverTimestamp()
-    });
-  }
-  return chatId;
+  if (existingChatId) return existingChatId;
+
+  // Create a new chat session if none exists
+  const newChatDoc = await addDoc(chatsRef, {
+    participants: [currentUserId, targetUserId],
+    lastMessage: "",
+    lastTimestamp: serverTimestamp()
+  });
+
+  return newChatDoc.id;
 };
 
+/**
+ * Sends a message within a chat session and updates the session's last message preview.
+ */
 export const sendChatMessage = async (chatId: string, senderId: string, text: string) => {
+  const chatRef = doc(db, "chats", chatId);
   const messagesRef = collection(db, "chats", chatId, "messages");
+
+  // Add the message to the messages subcollection
   await addDoc(messagesRef, {
     senderId,
     text,
     timestamp: serverTimestamp()
   });
-  
-  const chatRef = doc(db, "chats", chatId);
+
+  // Update the parent chat document for sorting the messages list
   await updateDoc(chatRef, {
     lastMessage: text,
     lastTimestamp: serverTimestamp()
