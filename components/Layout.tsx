@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-// Added missing Dog and Sparkles icons to the imports
-import { Menu, Bell, User as UserIcon, Trash2, CheckCircle2, AlertCircleTriangle as AlertTriangle, Info, X, Search, Settings as SettingsIcon, Dog, Sparkles } from 'lucide-react';
+// Corrected the import: 'AlertCircleTriangle' is not a valid export, it should be 'AlertTriangle'
+import { Menu, Bell, User as UserIcon, Trash2, CheckCircle2, AlertTriangle, Info, X, Search, Settings as SettingsIcon, Dog, Sparkles } from 'lucide-react';
 import Sidebar from './Sidebar';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications, AppNotification } from '../context/NotificationContext';
