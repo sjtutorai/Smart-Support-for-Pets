@@ -39,7 +39,6 @@ declare global {
   }
 
   interface Window {
-    // Fixed: Removed readonly to match pre-configured environment declarations and fix identical modifier error
     aistudio: AIStudio;
   }
 }
@@ -207,8 +206,7 @@ const PetProfilePage: React.FC = () => {
 
       const part = response.candidates?.[0]?.content?.parts.find(p => p.inlineData);
       if (part?.inlineData) {
-        const base64EncodeString: string = part.inlineData.data;
-        const avatarUrl = `data:image/png;base64,${base64EncodeString}`;
+        const avatarUrl = `data:image/png;base64,${part.inlineData.data}`;
         const updatedPets = pets.map(p => p.id === selectedPet.id ? { ...p, avatarUrl } : p);
         savePetsToStorage(updatedPets);
         setSelectedPet({ ...selectedPet, avatarUrl });

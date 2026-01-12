@@ -15,8 +15,7 @@ import {
   ArrowLeft,
   RefreshCcw,
   ExternalLink,
-  Search,
-  Key
+  Search
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { useAuth } from '../context/AuthContext';
@@ -29,7 +28,6 @@ const AIAssistant: React.FC = () => {
   const [report, setReport] = useState<string | null>(null);
   const [groundingChunks, setGroundingChunks] = useState<any[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [showKeyRequirement, setShowKeyRequirement] = useState(false);
   
   const [formData, setFormData] = useState({
     type: 'Health',
@@ -61,23 +59,10 @@ const AIAssistant: React.FC = () => {
     }));
   };
 
-  // Function to handle the manual API key selection dialog
-  const handleConnectKey = async () => {
-    await window.aistudio.openSelectKey();
-    setShowKeyRequirement(false);
-  };
-
   const handleConsultation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.details && formData.symptoms.length === 0) return;
     
-    // Check for required API Key selection for high-quality Pro models used with Search Grounding
-    const hasKey = await window.aistudio.hasSelectedApiKey();
-    if (!hasKey) {
-      setShowKeyRequirement(true);
-      return;
-    }
-
     setIsLoading(true);
     setErrorMessage(null);
     setReport(null);
@@ -106,9 +91,8 @@ const AIAssistant: React.FC = () => {
         Include sections: ## Executive Summary, ## Potential Context, ## Recommended Steps, ## Red Flags.
       `;
 
-      // Upgraded to 'gemini-3-pro-image-preview' as it's the mandatory model for Pro-tier search grounding tasks
       const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-image-preview',
+        model: 'gemini-3-pro-preview',
         contents: prompt,
         config: {
           tools: [{ googleSearch: {} }],
@@ -121,13 +105,7 @@ const AIAssistant: React.FC = () => {
       setGroundingChunks(response.candidates?.[0]?.groundingMetadata?.groundingChunks || []);
     } catch (err: any) {
       console.error("AI Assistant Error:", err);
-      // Reset key selection state if the requested entity was not found (signaling an invalid or inactive key)
-      if (err.message?.includes("Requested entity was not found")) {
-        setShowKeyRequirement(true);
-        setErrorMessage("Please select a valid paid API key to continue.");
-      } else {
-        setErrorMessage("Analysis interrupted. Please refine your query and try again.");
-      }
+      setErrorMessage("Analysis interrupted. Please refine your query and try again.");
     } finally {
       setIsLoading(false);
     }
@@ -161,16 +139,6 @@ const AIAssistant: React.FC = () => {
               {errorMessage ? (
                 <div className="text-center py-10">
                   <p className="text-rose-600 font-bold">{errorMessage}</p>
-                  {showKeyRequirement && (
-                    <div className="mt-8 max-w-sm mx-auto p-6 bg-amber-50 rounded-3xl border border-amber-100 space-y-4">
-                      <div className="flex items-center gap-3 text-amber-700 justify-center">
-                        <Key size={20} />
-                        <h4 className="font-black text-sm uppercase">Paid API Key Required</h4>
-                      </div>
-                      <p className="text-xs text-amber-800 font-medium">To use high-quality search grounding, you must select your own paid API key from a Google Cloud project.</p>
-                      <button onClick={handleConnectKey} className="w-full bg-theme text-white py-3 rounded-xl font-bold text-xs uppercase shadow-lg shadow-theme/20">Connect Key</button>
-                    </div>
-                  )}
                   <button onClick={handleConsultation} className="mt-6 bg-slate-900 text-white px-8 py-4 rounded-2xl">Retry</button>
                 </div>
               ) : (
@@ -253,20 +221,6 @@ const AIAssistant: React.FC = () => {
                 </div>
               </section>
             </div>
-
-            {showKeyRequirement && (
-              <div className="p-8 bg-amber-50 rounded-[3rem] border border-amber-100 animate-in slide-in-from-bottom-4 space-y-4">
-                <div className="flex items-center gap-3 text-amber-700">
-                  <Key size={24} />
-                  <h4 className="font-black text-lg uppercase">Paid API Key Required</h4>
-                </div>
-                <p className="text-sm text-amber-800 font-medium">Accessing real-time veterinary standards via Google Search requires a Pro-tier model and your own paid API key from a Google Cloud project.</p>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <button type="button" onClick={handleConnectKey} className="flex-1 bg-theme text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-theme/20">Connect Key</button>
-                  <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="flex-1 bg-white border border-amber-200 text-amber-700 py-4 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2">Docs <ExternalLink size={16} /></a>
-                </div>
-              </div>
-            )}
 
             <button 
               type="submit"
