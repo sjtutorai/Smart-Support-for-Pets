@@ -13,6 +13,7 @@ export enum AppRoutes {
   PRIVACY = '/privacy',
   CHAT = '/chat',
   FIND_FRIENDS = '/find-friends',
+  PUBLIC_PET_PROFILE = '/v/:petId',
 }
 
 export interface NavItem {
@@ -43,6 +44,7 @@ export interface VaccinationRecord {
 
 export interface PetProfile {
   id: string;
+  ownerId: string;
   name: string;
   species: string;
   breed: string;
@@ -55,6 +57,8 @@ export interface PetProfile {
   healthNotes?: string;
   weightHistory: WeightRecord[];
   vaccinations: VaccinationRecord[];
+  isPublic: boolean;
+  ownerName: string;
 }
 
 export interface ChatMessage {

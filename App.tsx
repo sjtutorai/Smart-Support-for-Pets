@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter as Router, Routes, Route, Navigate, useParams } from "react-router-dom";
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import AIAssistant from './pages/AIAssistant';
@@ -16,6 +16,7 @@ import { AppRoutes, PetProfile, WeightRecord, VaccinationRecord } from './types'
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { GoogleGenAI } from "@google/genai";
+import { syncPetToDb, getPetById } from './services/firebase';
 import { 
   Dog, Plus, PawPrint, Weight, Palette, Fingerprint, 
   AlertCircle, Camera, Check, ChevronRight, Cat, Bird, Rabbit, 
@@ -97,7 +98,6 @@ const calculateAge = (birthday: string) => {
   const birthDate = new Date(birthday);
   const today = new Date();
   
-  // Validation: If birthday is in the future, return 0
   if (birthDate > today) return { years: 0, months: 0 };
 
   let years = today.getFullYear() - birthDate.getFullYear();
@@ -107,6 +107,98 @@ const calculateAge = (birthday: string) => {
     months += 12;
   }
   return { years: Math.max(0, years), months: Math.max(0, months) };
+};
+
+const PublicPetProfile: React.FC = () => {
+  const { petId } = useParams<{ petId: string }>();
+  const [pet, setPet] = useState<PetProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPet = async () => {
+      if (petId) {
+        const data = await getPetById(petId);
+        setPet(data as PetProfile);
+      }
+      setLoading(false);
+    };
+    fetchPet();
+  }, [petId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-10">
+        <Loader2 className="animate-spin text-theme" size={48} />
+      </div>
+    );
+  }
+
+  if (!pet) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-10 text-center space-y-6">
+        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-xl text-slate-300">
+          <AlertCircle size={48} />
+        </div>
+        <h2 className="text-3xl font-black text-slate-800">Companion Not Found</h2>
+        <p className="text-slate-500 max-w-sm">The profile you are looking for doesn't exist or has been made private.</p>
+        <a href="/" className="px-8 py-4 bg-theme text-white rounded-2xl font-black uppercase tracking-widest text-xs">Back to Home</a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 py-12 px-6">
+      <div className="max-w-xl mx-auto bg-white rounded-[4rem] shadow-2xl overflow-hidden border border-slate-100">
+        <div className="bg-theme p-10 text-white flex flex-col items-center text-center space-y-4">
+          <div className="w-44 h-44 rounded-[3.5rem] border-8 border-white shadow-2xl overflow-hidden bg-white/20">
+            {pet.avatarUrl ? <img src={pet.avatarUrl} className="w-full h-full object-cover" /> : <Dog size={80} className="m-10 opacity-30" />}
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60">Verified Identity</p>
+            <h3 className="text-5xl font-black tracking-tighter">{pet.name}</h3>
+            <p className="text-lg font-bold opacity-80 uppercase tracking-widest">{pet.breed} • {pet.species}</p>
+          </div>
+        </div>
+        <div className="p-10 space-y-10">
+          <div className="grid grid-cols-2 gap-6">
+            <div className="bg-slate-50 p-6 rounded-[2.5rem] space-y-2 border border-slate-100/50">
+              <div className="flex items-center gap-2 text-theme"><UserIconLucide size={16} /> <span className="text-[10px] font-black uppercase tracking-widest">Parent</span></div>
+              <p className="font-black text-slate-800">{pet.ownerName || 'Pet Parent'}</p>
+            </div>
+            <div className="bg-slate-50 p-6 rounded-[2.5rem] space-y-2 border border-slate-100/50">
+              <div className="flex items-center gap-2 text-theme"><Calendar size={16} /> <span className="text-[10px] font-black uppercase tracking-widest">Age</span></div>
+              <p className="font-black text-slate-800">{pet.ageYears}y {pet.ageMonths}m</p>
+            </div>
+          </div>
+
+          <div className="bg-indigo-50/50 p-8 rounded-[3rem] border border-theme/10 space-y-4 relative overflow-hidden">
+            <Quote className="absolute top-4 left-4 opacity-5" size={48} />
+            <h4 className="text-[10px] font-black text-theme uppercase tracking-[0.2em] flex items-center gap-2"><Info size={14} /> Profile Description</h4>
+            <p className="text-slate-600 font-medium italic leading-relaxed relative z-10">"{pet.bio || 'This companion is a verified member of the SS Paw Pal family.'}"</p>
+          </div>
+
+          <div className="space-y-4">
+            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Medical Highlights</h4>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100/50">
+                <div className="flex items-center gap-3">
+                  <Weight size={18} className="text-rose-500" />
+                  <span className="text-xs font-black uppercase tracking-widest text-slate-500">Current Weight</span>
+                </div>
+                <span className="font-black text-slate-800">{pet.weightHistory?.[pet.weightHistory.length - 1]?.weight || '--'} kg</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-6 flex flex-col gap-4 text-center">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Scanned via Official SS Paw Pal Tag</p>
+            <div className="w-full h-px bg-slate-100"></div>
+            <a href="https://smartsupportforpets.vercel.app/" target="_blank" className="text-[10px] font-black text-theme uppercase tracking-widest hover:underline">Register your pet companion</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const PetProfilePage: React.FC = () => {
@@ -144,14 +236,19 @@ const PetProfilePage: React.FC = () => {
     }
   }, [user, selectedPet]);
 
-  const savePetsToStorage = (updatedPets: PetProfile[]) => {
+  const savePetsToStorage = async (updatedPets: PetProfile[]) => {
     localStorage.setItem(`ssp_pets_${user?.uid}`, JSON.stringify(updatedPets));
     setPets(updatedPets);
+    // Sync each pet to Firestore for public access
+    for (const pet of updatedPets) {
+      await syncPetToDb(pet);
+    }
   };
 
-  const generateQRCode = (petName: string) => {
-    const qrData = `SS Paw Pal\n------------------\nPet: ${petName}\nParent: ${user?.displayName || 'Pet Parent'}\nApp: SS Paw Pal\nWeb: https://smartsupportforpets.vercel.app/`;
-    return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}&color=4f46e5&bgcolor=ffffff`;
+  const generateQRCode = (petId: string) => {
+    // Generates a URL for the public verification page
+    const verifyUrl = `${window.location.origin}/#/v/${petId}`;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(verifyUrl)}&color=4f46e5&bgcolor=ffffff&margin=10`;
   };
 
   const validateBirthday = (birthday?: string) => {
@@ -161,7 +258,7 @@ const PetProfilePage: React.FC = () => {
     return birthDate <= today;
   };
 
-  const handleAddPet = (e: React.FormEvent) => {
+  const handleAddPet = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -172,26 +269,29 @@ const PetProfilePage: React.FC = () => {
 
     const id = crypto.randomUUID();
     const { years, months } = calculateAge(newPet.birthday || '');
-    const qrCodeUrl = generateQRCode(newPet.name || 'My Pet');
+    const qrCodeUrl = generateQRCode(id);
     
     const completePet: PetProfile = {
       ...newPet as PetProfile,
       id,
+      ownerId: user?.uid || '',
+      ownerName: user?.displayName || 'Pet Parent',
       qrCodeUrl,
       ageYears: String(years),
       ageMonths: String(months),
       weightHistory: [],
-      vaccinations: []
+      vaccinations: [],
+      isPublic: true
     };
 
     const updatedPets = [...pets, completePet];
-    savePetsToStorage(updatedPets);
+    await savePetsToStorage(updatedPets);
     setSelectedPet(completePet);
     setSaveSuccess(true);
     setTimeout(() => { setIsAdding(false); setSaveSuccess(false); setStep(1); }, 1500);
   };
 
-  const handleUpdatePet = (e: React.FormEvent) => {
+  const handleUpdatePet = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPet) return;
     setError(null);
@@ -206,10 +306,10 @@ const PetProfilePage: React.FC = () => {
       ...selectedPet, 
       ageYears: String(years), 
       ageMonths: String(months),
-      qrCodeUrl: generateQRCode(selectedPet.name) 
+      qrCodeUrl: generateQRCode(selectedPet.id) 
     };
     const updatedPets = pets.map(p => p.id === selectedPet.id ? updatedPet : p);
-    savePetsToStorage(updatedPets);
+    await savePetsToStorage(updatedPets);
     setSelectedPet(updatedPet);
     setSaveSuccess(true);
     setTimeout(() => { setIsEditing(false); setSaveSuccess(false); }, 1500);
@@ -223,7 +323,7 @@ const PetProfilePage: React.FC = () => {
         const base64 = reader.result as string;
         const updatedPet = { ...selectedPet, avatarUrl: base64 };
         const updatedPets = pets.map(p => p.id === selectedPet.id ? updatedPet : p);
-        savePetsToStorage(updatedPets);
+        await savePetsToStorage(updatedPets);
         setSelectedPet(updatedPet);
         if (confirm("Would you like to generate a high-quality AI avatar based on this image?")) {
             generateAIAvatar(base64);
@@ -256,7 +356,7 @@ const PetProfilePage: React.FC = () => {
           const avatarUrl = `data:image/png;base64,${part.inlineData.data}`;
           const updatedPet = { ...selectedPet, avatarUrl };
           const updatedPets = pets.map(p => p.id === selectedPet.id ? updatedPet : p);
-          savePetsToStorage(updatedPets);
+          await savePetsToStorage(updatedPets);
           setSelectedPet(updatedPet);
           break;
         }
@@ -308,18 +408,19 @@ const PetProfilePage: React.FC = () => {
     setShowKeyRequirement(false);
   };
 
-  const handleAddWeight = () => {
+  const handleAddWeight = async () => {
     if (!newWeight || isNaN(Number(newWeight)) || !selectedPet) return;
     const updatedHistory: WeightRecord[] = [...(selectedPet.weightHistory || []), { date: new Date().toISOString(), weight: Number(newWeight) }];
     const updatedPets = pets.map(p => p.id === selectedPet.id ? { ...p, weightHistory: updatedHistory } : p);
-    savePetsToStorage(updatedPets);
+    await savePetsToStorage(updatedPets);
     setSelectedPet({ ...selectedPet, weightHistory: updatedHistory });
     setNewWeight('');
   };
 
   const handleSimulateScan = () => {
     if (pets.length > 0) {
-      setScanResult(pets[0]);
+      // Navigates to the actual public profile page
+      window.location.href = `#/v/${pets[0].id}`;
     } else {
       alert("No registered pets found to scan.");
       setIsScanning(false);
@@ -375,59 +476,24 @@ const PetProfilePage: React.FC = () => {
 
       {isScanning && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
-          {!scanResult ? (
-            <div className="bg-white rounded-[3.5rem] p-12 max-w-lg w-full shadow-2xl border border-slate-100 text-center space-y-10 animate-in zoom-in-95">
-              <div className="relative w-48 h-48 mx-auto">
-                <div className="absolute inset-0 border-4 border-theme/20 rounded-[3rem]"></div>
-                <div className="absolute inset-4 border-2 border-theme border-dashed rounded-[2rem] animate-[spin_10s_linear_infinite]"></div>
-                <div className="absolute inset-0 flex items-center justify-center text-theme">
-                  <QrCode size={64} className="animate-pulse" />
-                </div>
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-theme to-transparent animate-[bounce_2s_infinite]"></div>
+          <div className="bg-white rounded-[3.5rem] p-12 max-w-lg w-full shadow-2xl border border-slate-100 text-center space-y-10 animate-in zoom-in-95">
+            <div className="relative w-48 h-48 mx-auto">
+              <div className="absolute inset-0 border-4 border-theme/20 rounded-[3rem]"></div>
+              <div className="absolute inset-4 border-2 border-theme border-dashed rounded-[2rem] animate-[spin_10s_linear_infinite]"></div>
+              <div className="absolute inset-0 flex items-center justify-center text-theme">
+                <QrCode size={64} className="animate-pulse" />
               </div>
-              <div className="space-y-4">
-                <h3 className="text-3xl font-black text-slate-900 tracking-tight">Scanner Active</h3>
-                <p className="text-slate-500 font-medium">Point your camera at an SS Paw Pal QR code tag to identify a pet companion.</p>
-              </div>
-              <div className="flex gap-4">
-                <button onClick={handleSimulateScan} className="flex-1 py-5 bg-theme text-white rounded-2xl font-black uppercase tracking-widest hover:bg-theme-hover transition-all">Simulate Scan</button>
-                <button onClick={() => setIsScanning(false)} className="px-8 py-5 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase tracking-widest">Cancel</button>
-              </div>
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-theme to-transparent animate-[bounce_2s_infinite]"></div>
             </div>
-          ) : (
-            <div className="bg-white rounded-[4rem] max-w-xl w-full shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-500">
-               <div className="bg-theme p-10 text-white flex flex-col items-center text-center space-y-4">
-                  <div className="w-40 h-40 rounded-[3rem] border-4 border-white shadow-2xl overflow-hidden bg-white/20">
-                     {scanResult.avatarUrl ? <img src={scanResult.avatarUrl} className="w-full h-full object-cover" /> : <Dog size={80} className="m-10 opacity-30" />}
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60">Verified SS Paw Pal Identity</p>
-                    <h3 className="text-5xl font-black tracking-tighter">{scanResult.name}</h3>
-                    <p className="text-lg font-bold opacity-80 uppercase tracking-widest">{scanResult.breed} • {scanResult.species}</p>
-                  </div>
-               </div>
-               <div className="p-10 space-y-8">
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="bg-slate-50 p-6 rounded-[2rem] space-y-2">
-                       <div className="flex items-center gap-2 text-theme"><UserIconLucide size={16} /> <span className="text-[10px] font-black uppercase tracking-widest">Parent</span></div>
-                       <p className="font-black text-slate-800">{user?.displayName || 'Pet Parent'}</p>
-                    </div>
-                    <div className="bg-slate-50 p-6 rounded-[2rem] space-y-2">
-                       <div className="flex items-center gap-2 text-theme"><Globe size={16} /> <span className="text-[10px] font-black uppercase tracking-widest">Region</span></div>
-                       <p className="font-black text-slate-800">Global SSP</p>
-                    </div>
-                  </div>
-                  <div className="bg-indigo-50/50 p-8 rounded-[2.5rem] border border-theme/10 space-y-4">
-                     <h4 className="text-[10px] font-black text-theme uppercase tracking-[0.2em] flex items-center gap-2"><Info size={14} /> Profile Description</h4>
-                     <p className="text-slate-600 font-medium italic leading-relaxed">"{scanResult.bio || 'This companion is a verified member of the SS Paw Pal family.'}"</p>
-                  </div>
-                  <div className="pt-4 flex flex-col gap-3">
-                    <button onClick={() => { setScanResult(null); setIsScanning(false); }} className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-lg shadow-xl shadow-slate-200">Done Viewing</button>
-                    <a href="https://smartsupportforpets.vercel.app/" target="_blank" className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-theme transition-colors">smartsupportforpets.vercel.app</a>
-                  </div>
-               </div>
+            <div className="space-y-4">
+              <h3 className="text-3xl font-black text-slate-900 tracking-tight">Scanner Active</h3>
+              <p className="text-slate-500 font-medium">Point your camera at an SS Paw Pal QR code tag to identify a pet companion.</p>
             </div>
-          )}
+            <div className="flex gap-4">
+              <button onClick={handleSimulateScan} className="flex-1 py-5 bg-theme text-white rounded-2xl font-black uppercase tracking-widest hover:bg-theme-hover transition-all">Simulate Scan</button>
+              <button onClick={() => setIsScanning(false)} className="px-8 py-5 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase tracking-widest">Cancel</button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -548,7 +614,7 @@ const PetProfilePage: React.FC = () => {
                 </div>
 
                 <div className="w-full p-4 bg-slate-50 rounded-[2rem] flex flex-col items-center gap-4 border border-slate-100/50">
-                  <img src={generateQRCode(selectedPet.name)} className="w-40 h-40 bg-white p-2 rounded-2xl shadow-inner border border-slate-100" alt="QR ID" />
+                  <img src={generateQRCode(selectedPet.id)} className="w-40 h-40 bg-white p-2 rounded-2xl shadow-inner border border-slate-100" alt="QR ID" />
                   <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] font-mono">SSP-ID: {selectedPet.id.slice(0, 8).toUpperCase()}</div>
                 </div>
               </div>
@@ -703,6 +769,7 @@ const AppContent: React.FC = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path={AppRoutes.PUBLIC_PET_PROFILE} element={<PublicPetProfile />} />
       <Route path={AppRoutes.HOME} element={<ProtectedRoute><Home /></ProtectedRoute>} />
       <Route path={AppRoutes.AI_ASSISTANT} element={<ProtectedRoute><AIAssistant /></ProtectedRoute>} />
       <Route path={AppRoutes.PET_CARE} element={<ProtectedRoute><PetCare /></ProtectedRoute>} />

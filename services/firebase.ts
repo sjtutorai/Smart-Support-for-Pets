@@ -83,6 +83,23 @@ export const syncUserToDb = async (user: FirebaseUser, extraData: any = {}) => {
   }
 };
 
+/**
+ * Syncs pet profile to global Firestore collection for QR public access.
+ */
+export const syncPetToDb = async (pet: any) => {
+  const petRef = doc(db, "pets", pet.id);
+  await setDoc(petRef, {
+    ...pet,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+};
+
+export const getPetById = async (id: string) => {
+  const petRef = doc(db, "pets", id);
+  const snap = await getDoc(petRef);
+  return snap.exists() ? snap.data() : null;
+};
+
 export const loginWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account consent' });
