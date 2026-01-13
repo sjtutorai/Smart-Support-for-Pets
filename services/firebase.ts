@@ -66,7 +66,7 @@ export const syncUserToDb = async (user: FirebaseUser, extraData: any = {}) => {
   const userRef = doc(db, "users", user.uid);
   const data = {
     uid: user.uid,
-    email: user.email ? user.email.toLowerCase() : null, // Fix: Lowercase email for consistent searching
+    email: user.email,
     displayName: extraData.displayName || user.displayName || 'Pet Parent',
     photoURL: user.photoURL || null,
     username: extraData.username || user.displayName?.toLowerCase().replace(/\s/g, '') || user.uid.slice(0, 8),
@@ -111,6 +111,8 @@ export const loginWithIdentifier = async (identifier: string, password: string) 
     const q = query(collection(db, "users"), where("username", "==", identifier.toLowerCase().trim()), limit(1));
     const querySnapshot = await getDocs(q);
     if (querySnapshot.empty) {
+      // Let firebase handle the error for non-existent user for security.
+      // This will fail with auth/invalid-email which is handled as invalid credential.
       return signInWithEmailAndPassword(auth, identifier, password);
     }
     const userData = querySnapshot.docs[0].data();
@@ -200,37 +202,17 @@ export const sendChatMessage = async (chatId: string, senderId: string, text: st
   });
 };
 
-/**
- * Searches for users by email or username, excluding the current user.
- */
-export const searchUsersByEmailOrUsername = async (searchTerm: string, currentUserId: string) => {
-  if (!searchTerm.trim()) return [];
-  const term = searchTerm.toLowerCase().trim();
-
-  // Firestore requires separate queries for OR-like behavior across different fields
-  const emailQuery = query(collection(db, "users"), where("email", "==", term));
-  const usernameQuery = query(collection(db, "users"), where("username", "==", term));
-
-  const [emailSnapshot, usernameSnapshot] = await Promise.all([
-    getDocs(emailQuery),
-    getDocs(usernameQuery),
-  ]);
-
-  const usersMap = new Map();
-
-  emailSnapshot.forEach(doc => {
-    if (doc.id !== currentUserId) {
-      usersMap.set(doc.id, { id: doc.id, ...doc.data() });
-    }
-  });
-
-  usernameSnapshot.forEach(doc => {
-    if (doc.id !== currentUserId) {
-      usersMap.set(doc.id, { id: doc.id, ...doc.data() });
-    }
-  });
-
-  return Array.from(usersMap.values());
+// New Function: Search for users by email, excluding the current user
+export const searchUsersByEmail = async (email: string, currentUserId: string) => {
+  if (!email) return [];
+  const q = query(
+    collection(db, "users"),
+    where("email", "==", email.toLowerCase().trim())
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs
+    .map(doc => ({ id: doc.id, ...doc.data() }))
+    .filter(user => user.id !== currentUserId);
 };
 
 // New Function: Follow a user

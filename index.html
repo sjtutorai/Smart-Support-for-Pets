@@ -4,69 +4,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐾 SS Paw Pal - BEST APP EVER! 🐾</title>
+    <title>SS Paw Pal</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="https://res.cloudinary.com/dazlddxht/image/upload/v1768234409/SS_Paw_Pal_Logo_aceyn8.png">
     <style>
         :root {
-            --theme-color: #7c3aed; /* Purple! */
-            --theme-color-hover: #6d28d9;
-            --theme-color-light: #f5f3ff;
-            --fun-yellow: #fef08a;
-            --fun-orange: #fb923c;
+            --theme-color: #4f46e5; /* Default Indigo 600 */
+            --theme-color-hover: #4338ca; /* Default Indigo 700 */
+            --theme-color-light: #eef2ff; /* Default Indigo 50 */
         }
         body {
-            font-family: 'Fredoka', sans-serif;
-            background-color: #fef9c3; /* Soft yellow background like a notebook */
-            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
-            background-size: 20px 20px;
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
             margin: 0;
             padding: 0;
             overflow-x: hidden;
         }
-        
-        /* Sticker Style Cards */
-        .sticker-card {
-            background: white;
-            border: 4px solid #000;
-            box-shadow: 8px 8px 0px 0px #000;
-            border-radius: 20px;
-            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .sticker-card:hover {
-            transform: translate(-4px, -4px);
-            box-shadow: 12px 12px 0px 0px #000;
-        }
-
-        /* Fun Buttons */
-        .fun-button {
-            border: 3px solid #000;
-            box-shadow: 4px 4px 0px 0px #000;
-            transition: all 0.1s;
-            font-weight: 700;
-        }
-        .fun-button:active {
-            transform: translate(2px, 2px);
-            box-shadow: 0px 0px 0px 0px #000;
-        }
-        
         /* Custom scrollbar */
         ::-webkit-scrollbar {
-          width: 12px;
+          width: 8px;
         }
         ::-webkit-scrollbar-track {
-          background: #fef9c3;
+          background: #f1f5f9;
         }
         ::-webkit-scrollbar-thumb {
-          background: #7c3aed;
-          border: 3px solid #000;
-          border-radius: 10px;
+          background: #cbd5e1;
+          border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
         }
         
-        .text-outline {
-            -webkit-text-stroke: 1px black;
-            color: white;
+        /* Dynamic Theme Utilities */
+        .bg-theme { background-color: var(--theme-color) !important; }
+        .bg-theme-hover:hover { background-color: var(--theme-color-hover) !important; }
+        .bg-theme-light { background-color: var(--theme-color-light) !important; }
+        .text-theme { color: var(--theme-color) !important; }
+        .text-theme-hover:hover { color: var(--theme-color-hover) !important; }
+        .border-theme { border-color: var(--theme-color) !important; }
+        .ring-theme:focus { --tw-ring-color: var(--theme-color) !important; }
+        
+        /* Smooth transitions for theme changes */
+        .transition-theme {
+            transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
         }
     </style>
 <script type="importmap">
