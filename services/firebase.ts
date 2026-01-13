@@ -105,11 +105,26 @@ export const sendFoundPetNotification = async (pet: any, finderName: string, fin
   const notifRef = collection(db, "users", pet.ownerId, "notifications");
   await addDoc(notifRef, {
     title: "🐾 Pet Tag Scanned!",
-    message: `Your pet ${pet.name}'s SSP tag was just scanned by ${finderName}. This person may be trying to reach you!`,
+    message: `Your pet ${pet.name}'s SSP tag was just scanned by ${finderName}. They have been informed of your contact preference.`,
     type: "warning",
     timestamp: new Date().toISOString(),
     read: false,
     finderId: finderId || "anonymous"
+  });
+};
+
+export const sendRegistrationPermissionRequest = async (pet: any, finderName: string, finderId: string) => {
+  if (!pet.ownerId) return;
+  const notifRef = collection(db, "users", pet.ownerId, "notifications");
+  await addDoc(notifRef, {
+    title: "🔒 Permission Request",
+    message: `${finderName} has scanned ${pet.name} and is requesting permission to register/co-parent this pet profile. Do you allow this?`,
+    type: "info",
+    timestamp: new Date().toISOString(),
+    read: false,
+    finderId: finderId,
+    requestId: `reg_${pet.id}_${finderId}`,
+    actionRequired: true
   });
 };
 
