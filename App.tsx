@@ -22,7 +22,7 @@ import {
   Trash2, Edit3, ArrowLeft, Stethoscope, Search, Star, MessageCircle,
   Heart, Fish, Bug, Thermometer, Droplets, Calendar, LineChart, Syringe, TrendingUp,
   Sparkles, Info, Quote, Upload, Loader2, Wand2, QrCode, Scan, X, ExternalLink, Save,
-  Key, ShieldCheck, Globe, User as UserIconLucide
+  Key, ShieldCheck, Globe, User as UserIconLucide, Brain, RefreshCcw
 } from 'lucide-react';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -116,6 +116,8 @@ const PetProfilePage: React.FC = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
+  const [isGeneratingHealthReport, setIsGeneratingHealthReport] = useState(false);
+  const [healthReport, setHealthReport] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<PetProfile | null>(null);
   const [showKeyRequirement, setShowKeyRequirement] = useState(false);
@@ -148,7 +150,6 @@ const PetProfilePage: React.FC = () => {
   };
 
   const generateQRCode = (petName: string) => {
-    // Beautifully formatted QR Data for standard scanners
     const qrData = `SS Paw Pal\n------------------\nPet: ${petName}\nParent: ${user?.displayName || 'Pet Parent'}\nApp: SS Paw Pal\nWeb: https://smartsupportforpets.vercel.app/`;
     return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}&color=4f46e5&bgcolor=ffffff`;
   };
@@ -266,6 +267,42 @@ const PetProfilePage: React.FC = () => {
     } finally { setIsGeneratingAvatar(false); }
   };
 
+  const generateHealthInsights = async () => {
+    if (!selectedPet) return;
+    setIsGeneratingHealthReport(true);
+    setHealthReport(null);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const weightData = selectedPet.weightHistory.map(w => `${w.date}: ${w.weight}kg`).join(', ');
+      const vaccineData = selectedPet.vaccinations.map(v => `${v.name} (Due: ${v.nextDueDate})`).join(', ');
+      
+      const prompt = `Act as a professional veterinary health advisor. Analyze the following pet data and provide concise, helpful health insights.
+      Pet Name: ${selectedPet.name}
+      Species: ${selectedPet.species}
+      Breed: ${selectedPet.breed}
+      Age: ${selectedPet.ageYears}y ${selectedPet.ageMonths}m
+      Weight History: ${weightData || 'No history recorded'}
+      Vaccinations: ${vaccineData || 'No history recorded'}
+
+      Provide the output in Markdown with these specific sections:
+      ## Health Summary
+      ## Weight Trend Analysis
+      ## Vaccination Review
+      ## Actionable Wellness Tips`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+      });
+      setHealthReport(response.text || "Unable to generate insights at this time.");
+    } catch (err: any) {
+      console.error("AI Health Insights Error:", err);
+      setHealthReport("Medical server timed out. Please try again in a moment.");
+    } finally {
+      setIsGeneratingHealthReport(false);
+    }
+  };
+
   const handleConnectKey = async () => {
     await window.aistudio?.openSelectKey();
     setShowKeyRequirement(false);
@@ -298,7 +335,6 @@ const PetProfilePage: React.FC = () => {
     return { lastWeight, nextVaccine };
   }, [selectedPet]);
 
-  // Today's date string for input 'max' attribute
   const todayStr = new Date().toISOString().split("T")[0];
 
   return (
@@ -322,7 +358,7 @@ const PetProfilePage: React.FC = () => {
         {pets.map(p => (
           <button 
             key={p.id} 
-            onClick={() => { setSelectedPet(p); setIsAdding(false); setIsEditing(false); setError(null); }}
+            onClick={() => { setSelectedPet(p); setIsAdding(false); setIsEditing(false); setHealthReport(null); setError(null); }}
             className={`flex flex-col items-center gap-3 p-4 rounded-[2.5rem] border-2 transition-all ${selectedPet?.id === p.id && !isAdding ? 'bg-theme-light border-theme scale-105 shadow-lg' : 'bg-white border-transparent hover:border-slate-200'}`}
           >
             <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-inner bg-slate-100 flex items-center justify-center">
@@ -512,7 +548,6 @@ const PetProfilePage: React.FC = () => {
                 </div>
 
                 <div className="w-full p-4 bg-slate-50 rounded-[2rem] flex flex-col items-center gap-4 border border-slate-100/50">
-                  {/* Dynamic fresh QR code display ensuring Parent/Pet metadata is always updated visually */}
                   <img src={generateQRCode(selectedPet.name)} className="w-40 h-40 bg-white p-2 rounded-2xl shadow-inner border border-slate-100" alt="QR ID" />
                   <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] font-mono">SSP-ID: {selectedPet.id.slice(0, 8).toUpperCase()}</div>
                 </div>
@@ -554,6 +589,62 @@ const PetProfilePage: React.FC = () => {
                     {healthSummary?.nextVaccine ? `Due Date: ${healthSummary.nextVaccine.nextDueDate}` : 'Vaccination record is healthy'}
                   </p>
                 </div>
+              </div>
+            </div>
+
+            {/* AI Health Advisor Section */}
+            <div className="bg-white rounded-[3.5rem] border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+              <div className="p-10 border-b border-slate-50 bg-gradient-to-r from-indigo-50/50 to-white flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-100"><Brain size={24} /></div>
+                  <div>
+                    <h4 className="text-2xl font-black text-slate-800 tracking-tight">AI Health Advisor</h4>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Automated Clinical Insights</p>
+                  </div>
+                </div>
+                {!healthReport && !isGeneratingHealthReport && (
+                  <button 
+                    onClick={generateHealthInsights}
+                    className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all active:scale-95 shadow-xl shadow-indigo-100"
+                  >
+                    Analyze Health
+                  </button>
+                )}
+              </div>
+              <div className="p-10 min-h-[150px] flex flex-col items-center justify-center">
+                {isGeneratingHealthReport ? (
+                  <div className="text-center space-y-4 py-10">
+                    <Loader2 size={48} className="animate-spin text-theme mx-auto" />
+                    <div className="space-y-1">
+                      <p className="font-black text-slate-800 text-lg">Consulting AI Veterinarian...</p>
+                      <p className="text-slate-400 font-medium text-xs">Analyzing weight trends and breed predispositions</p>
+                    </div>
+                  </div>
+                ) : healthReport ? (
+                  <div className="w-full prose prose-slate prose-indigo max-w-none text-slate-600">
+                    <div className="space-y-6">
+                      {healthReport.split('\n').map((line, i) => {
+                        const trimmed = line.trim();
+                        if (trimmed.startsWith('##')) return <h5 key={i} className="text-xl font-black text-slate-900 mt-6 mb-2 border-b-2 border-theme-light inline-block">{trimmed.replace('##', '')}</h5>;
+                        if (trimmed.startsWith('*') || trimmed.startsWith('-')) return <li key={i} className="ml-4 mb-2 font-medium list-disc leading-relaxed">{trimmed.replace(/^[\*\-]\s/, '')}</li>;
+                        return <p key={i} className="leading-relaxed font-medium">{trimmed}</p>;
+                      })}
+                    </div>
+                    <button 
+                      onClick={generateHealthInsights} 
+                      className="mt-10 text-[10px] font-black text-theme uppercase tracking-widest flex items-center gap-2 hover:underline"
+                    >
+                      <RefreshCcw size={12} /> Refresh Medical Insights
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center space-y-4 py-6">
+                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
+                      <Sparkles className="text-slate-200" size={32} />
+                    </div>
+                    <p className="text-slate-400 font-medium italic">No recent analysis. Tap 'Analyze Health' to process your pet's record.</p>
+                  </div>
+                )}
               </div>
             </div>
 
