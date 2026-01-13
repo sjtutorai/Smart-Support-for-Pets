@@ -10,9 +10,9 @@
     <link rel="icon" type="image/png" href="https://res.cloudinary.com/dazlddxht/image/upload/v1768234409/SS_Paw_Pal_Logo_aceyn8.png">
     <style>
         :root {
-            --theme-color: #4f46e5; /* Default Indigo 600 */
-            --theme-color-hover: #4338ca; /* Default Indigo 700 */
-            --theme-color-light: #eef2ff; /* Default Indigo 50 */
+            --theme-color: #4f46e5;
+            --theme-color-hover: #4338ca;
+            --theme-color-light: #eef2ff;
         }
         body {
             font-family: 'Inter', sans-serif;
@@ -21,20 +21,39 @@
             padding: 0;
             overflow-x: hidden;
         }
+        /* Native Preloader Styles */
+        #preloader {
+            position: fixed;
+            inset: 0;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease, visibility 0.5s;
+        }
+        #preloader.fade-out {
+            opacity: 0;
+            visibility: hidden;
+        }
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #e2e8f0;
+            border-top-color: var(--theme-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
         /* Custom scrollbar */
-        ::-webkit-scrollbar {
-          width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-          background: #f1f5f9;
-        }
-        ::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
-          border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-          background: #94a3b8;
-        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
         /* Dynamic Theme Utilities */
         .bg-theme { background-color: var(--theme-color) !important; }
@@ -44,12 +63,17 @@
         .text-theme-hover:hover { color: var(--theme-color-hover) !important; }
         .border-theme { border-color: var(--theme-color) !important; }
         .ring-theme:focus { --tw-ring-color: var(--theme-color) !important; }
-        
-        /* Smooth transitions for theme changes */
-        .transition-theme {
-            transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
-        }
     </style>
+    <script>
+        // Immediate Theme Application to prevent FOUC
+        (function() {
+            const savedTheme = localStorage.getItem('ssp_theme_color') || '#4f46e5';
+            const root = document.documentElement;
+            root.style.setProperty('--theme-color', savedTheme);
+            root.style.setProperty('--theme-color-hover', savedTheme + 'dd'); 
+            root.style.setProperty('--theme-color-light', savedTheme + '15');
+        })();
+    </script>
 <script type="importmap">
 {
   "imports": {
@@ -68,6 +92,10 @@
 </script>
 </head>
 <body>
+    <div id="preloader">
+        <div class="spinner"></div>
+        <p style="margin-top: 20px; font-weight: 800; font-size: 12px; color: #64748b; letter-spacing: 0.2em; text-transform: uppercase;">SS Paw Pal Loading</p>
+    </div>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
 </body>

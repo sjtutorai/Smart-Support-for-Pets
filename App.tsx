@@ -1,17 +1,7 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useParams } from "react-router-dom";
 import Layout from './components/Layout';
-import Home from './pages/Home';
-import AIAssistant from './pages/AIAssistant';
-import PetCare from './pages/PetCare';
-import Login from './pages/Login';
-import Settings from './pages/Settings';
-import Community from './pages/Community';
-import Terms from './pages/Terms';
-import Privacy from './pages/Privacy';
-import Chat from './pages/Chat';
-import FindFriends from './pages/FindFriends';
 import { AppRoutes, PetProfile, WeightRecord, VaccinationRecord } from './types';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
@@ -26,11 +16,29 @@ import {
   Key, ShieldCheck, Globe, User as UserIconLucide, Brain, RefreshCcw
 } from 'lucide-react';
 
+// Lazy load pages for performance
+const Home = lazy(() => import('./pages/Home'));
+const AIAssistant = lazy(() => import('./pages/AIAssistant'));
+const PetCare = lazy(() => import('./pages/PetCare'));
+const Login = lazy(() => import('./pages/Login'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Community = lazy(() => import('./pages/Community'));
+const Terms = lazy(() => import('./pages/Terms'));
+const Privacy = lazy(() => import('./pages/Privacy'));
+const Chat = lazy(() => import('./pages/Chat'));
+const FindFriends = lazy(() => import('./pages/FindFriends'));
+
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
   return <Layout>{children}</Layout>;
 };
+
+const PageLoader = () => (
+  <div className="flex h-[60vh] w-full items-center justify-center">
+    <Loader2 className="animate-spin text-theme" size={48} />
+  </div>
+);
 
 declare global {
   interface AIStudio {
@@ -239,14 +247,12 @@ const PetProfilePage: React.FC = () => {
   const savePetsToStorage = async (updatedPets: PetProfile[]) => {
     localStorage.setItem(`ssp_pets_${user?.uid}`, JSON.stringify(updatedPets));
     setPets(updatedPets);
-    // Sync each pet to Firestore for public access
     for (const pet of updatedPets) {
       await syncPetToDb(pet);
     }
   };
 
   const generateQRCode = (petId: string) => {
-    // Generates a URL for the public verification page
     const verifyUrl = `${window.location.origin}/#/v/${petId}`;
     return `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(verifyUrl)}&color=4f46e5&bgcolor=ffffff&margin=10`;
   };
@@ -419,7 +425,6 @@ const PetProfilePage: React.FC = () => {
 
   const handleSimulateScan = () => {
     if (pets.length > 0) {
-      // Navigates to the actual public profile page
       window.location.href = `#/v/${pets[0].id}`;
     } else {
       alert("No registered pets found to scan.");
@@ -658,7 +663,6 @@ const PetProfilePage: React.FC = () => {
               </div>
             </div>
 
-            {/* AI Health Advisor Section */}
             <div className="bg-white rounded-[3.5rem] border border-slate-100 shadow-sm overflow-hidden flex flex-col">
               <div className="p-10 border-b border-slate-50 bg-gradient-to-r from-indigo-50/50 to-white flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -754,35 +758,33 @@ const PetProfilePage: React.FC = () => {
 
 const AppContent: React.FC = () => {
   useEffect(() => {
-    const applyTheme = () => {
-      const savedTheme = localStorage.getItem('ssp_theme_color') || '#4f46e5';
-      const root = document.documentElement;
-      root.style.setProperty('--theme-color', savedTheme);
-      root.style.setProperty('--theme-color-hover', savedTheme + 'dd'); 
-      root.style.setProperty('--theme-color-light', savedTheme + '15');
-    };
-    applyTheme();
-    const interval = setInterval(applyTheme, 500);
-    return () => clearInterval(interval);
+    // Optimization: Remove the preloader when React is ready
+    const preloader = document.getElementById('preloader');
+    if (preloader) {
+      preloader.classList.add('fade-out');
+      setTimeout(() => preloader.remove(), 500);
+    }
   }, []);
 
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path={AppRoutes.PUBLIC_PET_PROFILE} element={<PublicPetProfile />} />
-      <Route path={AppRoutes.HOME} element={<ProtectedRoute><Home /></ProtectedRoute>} />
-      <Route path={AppRoutes.AI_ASSISTANT} element={<ProtectedRoute><AIAssistant /></ProtectedRoute>} />
-      <Route path={AppRoutes.PET_CARE} element={<ProtectedRoute><PetCare /></ProtectedRoute>} />
-      <Route path={AppRoutes.HEALTH_CHECKUP} element={<ProtectedRoute><AIAssistant /></ProtectedRoute>} />
-      <Route path={AppRoutes.SETTINGS} element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-      <Route path={AppRoutes.PET_PROFILE} element={<ProtectedRoute><PetProfilePage /></ProtectedRoute>} />
-      <Route path={AppRoutes.CREATE_POST} element={<ProtectedRoute><Community /></ProtectedRoute>} />
-      <Route path={AppRoutes.CHAT} element={<ProtectedRoute><Chat /></ProtectedRoute>} />
-      <Route path={AppRoutes.FIND_FRIENDS} element={<ProtectedRoute><FindFriends /></ProtectedRoute>} />
-      <Route path={AppRoutes.TERMS} element={<ProtectedRoute><Terms /></ProtectedRoute>} />
-      <Route path={AppRoutes.PRIVACY} element={<ProtectedRoute><Privacy /></ProtectedRoute>} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path={AppRoutes.PUBLIC_PET_PROFILE} element={<PublicPetProfile />} />
+        <Route path={AppRoutes.HOME} element={<ProtectedRoute><Home /></ProtectedRoute>} />
+        <Route path={AppRoutes.AI_ASSISTANT} element={<ProtectedRoute><AIAssistant /></ProtectedRoute>} />
+        <Route path={AppRoutes.PET_CARE} element={<ProtectedRoute><PetCare /></ProtectedRoute>} />
+        <Route path={AppRoutes.HEALTH_CHECKUP} element={<ProtectedRoute><AIAssistant /></ProtectedRoute>} />
+        <Route path={AppRoutes.SETTINGS} element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path={AppRoutes.PET_PROFILE} element={<ProtectedRoute><PetProfilePage /></ProtectedRoute>} />
+        <Route path={AppRoutes.CREATE_POST} element={<ProtectedRoute><Community /></ProtectedRoute>} />
+        <Route path={AppRoutes.CHAT} element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+        <Route path={AppRoutes.FIND_FRIENDS} element={<ProtectedRoute><FindFriends /></ProtectedRoute>} />
+        <Route path={AppRoutes.TERMS} element={<ProtectedRoute><Terms /></ProtectedRoute>} />
+        <Route path={AppRoutes.PRIVACY} element={<ProtectedRoute><Privacy /></ProtectedRoute>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
   );
 };
 
