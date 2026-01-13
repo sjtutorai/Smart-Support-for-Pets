@@ -66,7 +66,7 @@ export const syncUserToDb = async (user: FirebaseUser, extraData: any = {}) => {
   const userRef = doc(db, "users", user.uid);
   const data = {
     uid: user.uid,
-    email: user.email ? user.email.toLowerCase() : null, // FIX: Store email in lowercase
+    email: user.email,
     displayName: extraData.displayName || user.displayName || 'Pet Parent',
     photoURL: user.photoURL || null,
     username: extraData.username || user.displayName?.toLowerCase().replace(/\s/g, '') || user.uid.slice(0, 8),
@@ -202,37 +202,17 @@ export const sendChatMessage = async (chatId: string, senderId: string, text: st
   });
 };
 
-// IMPROVED: Search for users by email or username
-export const searchUsersByEmailOrUsername = async (searchTerm: string, currentUserId: string) => {
-  if (!searchTerm.trim()) return [];
-  const term = searchTerm.toLowerCase().trim();
-
-  // Firestore doesn't support OR queries on different fields. We must run two separate queries.
-  const emailQuery = query(collection(db, "users"), where("email", "==", term));
-  const usernameQuery = query(collection(db, "users"), where("username", "==", term));
-
-  const [emailSnapshot, usernameSnapshot] = await Promise.all([
-    getDocs(emailQuery),
-    getDocs(usernameQuery),
-  ]);
-
-  const usersMap = new Map();
-
-  // Add users from email search, excluding the current user
-  emailSnapshot.forEach(doc => {
-    if (doc.id !== currentUserId) {
-      usersMap.set(doc.id, { id: doc.id, ...doc.data() });
-    }
-  });
-
-  // Add users from username search (Map handles duplicates), excluding the current user
-  usernameSnapshot.forEach(doc => {
-    if (doc.id !== currentUserId) {
-      usersMap.set(doc.id, { id: doc.id, ...doc.data() });
-    }
-  });
-
-  return Array.from(usersMap.values());
+// New Function: Search for users by email, excluding the current user
+export const searchUsersByEmail = async (email: string, currentUserId: string) => {
+  if (!email) return [];
+  const q = query(
+    collection(db, "users"),
+    where("email", "==", email.toLowerCase().trim())
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs
+    .map(doc => ({ id: doc.id, ...doc.data() }))
+    .filter(user => user.id !== currentUserId);
 };
 
 // New Function: Follow a user
