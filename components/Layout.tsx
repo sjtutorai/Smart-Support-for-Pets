@@ -1,10 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Menu, Bell, User as UserIcon, Trash2, CheckCircle2, AlertTriangle, Info, X, Search, Settings as SettingsIcon, Dog, Sparkles } from 'lucide-react';
+
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Menu, Bell, User as UserIcon, Trash2, CheckCircle2, AlertTriangle, Info, X, Search, Settings as SettingsIcon, Dog, Sparkles, Loader2 } from 'lucide-react';
 import Sidebar from './Sidebar';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications, AppNotification } from '../context/NotificationContext';
 import { Link, useLocation } from "react-router-dom";
-import { AppRoutes } from '../types';
+import { AppRoutes, User } from '../types';
+import { searchUsers } from '../services/firebase';
+import debounce from 'lodash.debounce';
 
 interface NotificationItemProps { 
   notif: AppNotification; 
@@ -40,13 +43,44 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const { notifications, unreadCount, markAsRead, clearAll } = useNotifications();
   const notifRef = useRef<HTMLDivElement>(null);
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<User[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   const LOGO_URL = "https://res.cloudinary.com/dazlddxht/image/upload/v1768234409/SS_Paw_Pal_Logo_aceyn8.png";
+
+  const debouncedSearch = useCallback(
+    debounce(async (query: string) => {
+      if (!query.trim()) {
+        setSearchResults([]);
+        setIsSearching(false);
+        return;
+      }
+      setIsSearching(true);
+      const users = await searchUsers(query);
+      const filteredUsers = users.filter(u => u.id !== user?.uid);
+      setSearchResults(filteredUsers as User[]);
+      setIsSearching(false);
+    }, 400),
+    [user?.uid]
+  );
+
+  useEffect(() => {
+    debouncedSearch(searchQuery);
+    return () => debouncedSearch.cancel();
+  }, [searchQuery, debouncedSearch]);
+
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
         setIsNotifOpen(false);
+      }
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setIsSearchFocused(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -65,6 +99,12 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     if (path === AppRoutes.SETTINGS) return "Account Hub";
     if (path.startsWith('/user/')) return "User Profile";
     return "SS Paw Pal";
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setIsSearchFocused(false);
   };
 
   return (
@@ -101,13 +141,50 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-6 md:gap-10">
-            <div className="hidden lg:flex items-center relative group">
-              <Search size={20} className="absolute left-5 text-slate-400 group-focus-within:text-theme transition-all" />
+            <div className="hidden lg:flex items-center relative group" ref={searchRef}>
+              <Search size={20} className="absolute left-5 text-slate-400 group-focus-within:text-theme transition-all z-10" />
               <input 
                 type="text" 
-                placeholder="Deep Search..." 
+                placeholder="Find a user..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setIsSearchFocused(true)}
                 className="bg-slate-100/50 border border-transparent rounded-[1.5rem] py-3.5 pl-14 pr-6 text-[15px] font-bold text-slate-700 focus:bg-white focus:ring-[10px] focus:ring-theme/5 focus:border-theme/20 outline-none transition-all w-72 lg:w-96"
               />
+              {isSearchFocused && searchQuery && (
+                <div className="absolute top-full mt-4 w-[28rem] bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-300">
+                  {isSearching ? (
+                    <div className="p-10 flex items-center justify-center gap-3">
+                      <Loader2 size={18} className="animate-spin text-theme" />
+                      <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Searching...</span>
+                    </div>
+                  ) : searchResults.length > 0 ? (
+                    <div className="max-h-96 overflow-y-auto custom-scrollbar p-2">
+                      {searchResults.map(result => (
+                        <Link 
+                          key={result.id} 
+                          to={`/user/${result.username}`} 
+                          onClick={clearSearch}
+                          className="flex items-center gap-4 p-4 hover:bg-theme-light rounded-2xl transition-all group"
+                        >
+                          <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100">
+                            <img src={result.photoURL || `https://ui-avatars.com/api/?name=${result.displayName}`} className="w-full h-full object-cover" />
+                          </div>
+                          <div>
+                            <p className="font-black text-slate-800 group-hover:text-theme">{result.displayName}</p>
+                            <p className="text-xs text-slate-400 font-bold">@{result.username}</p>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-10 text-center space-y-3">
+                       <p className="font-black text-slate-800">No Users Found</p>
+                       <p className="text-xs text-slate-400">Try a different username or email.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3 md:gap-6">
