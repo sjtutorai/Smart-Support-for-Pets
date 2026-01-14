@@ -95,6 +95,7 @@ export const syncPetToDb = async (pet: any) => {
 };
 
 export const getPetById = async (id: string) => {
+  if (!id) return null;
   const petRef = doc(db, "pets", id);
   const snap = await getDoc(petRef);
   return snap.exists() ? snap.data() : null;

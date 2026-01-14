@@ -83,7 +83,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
 
       {/* Slide Navigation Container */}
       <aside className={`
-        fixed inset-y-0 left-0 z-[70] bg-white/90 backdrop-blur-3xl border-r border-slate-200/60 
+        fixed inset-y-0 left-0 z-[70] bg-white/95 backdrop-blur-3xl border-r border-slate-200/60 
         transform transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
         md:relative md:translate-x-0
         ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
@@ -132,7 +132,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
                 </h3>
               )}
               
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {group.items.map((item) => {
                   const isActive = location.pathname === item.path;
                   return (
@@ -141,16 +141,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
                       to={item.path}
                       onClick={() => setIsOpen(false)}
                       className={`
-                        group relative flex items-center gap-4 px-5 py-4 rounded-[1.5rem] transition-all duration-300
+                        group relative flex items-center gap-4 px-6 py-4 rounded-full transition-all duration-300 overflow-hidden
                         ${isActive 
-                          ? 'bg-slate-900 text-white shadow-2xl shadow-slate-900/20' 
+                          ? 'bg-slate-900 text-white shadow-xl' 
                           : 'text-slate-500 hover:bg-theme-light hover:text-theme'}
                         ${isCollapsed && !isOpen ? 'md:justify-center px-0' : ''}
                       `}
                     >
-                      {/* Active Indicator Bar */}
-                      {isActive && !isCollapsed && (
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-theme rounded-r-full" />
+                      {/* Active Indicator Bar - Refined to match screenshot stripe */}
+                      {isActive && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[5px] h-7 bg-theme rounded-r-full shadow-[0_0_10px_var(--theme-color)]" />
                       )}
 
                       <item.icon size={22} className={`flex-shrink-0 transition-all duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110 group-hover:rotate-3'}`} />
@@ -176,7 +176,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
           <div className="bg-slate-50/50 border border-slate-100 rounded-[2.5rem] p-2 space-y-1 transition-all duration-500 overflow-hidden">
             <Link 
               to={AppRoutes.SETTINGS}
-              className={`flex items-center gap-3 p-2 rounded-[1.75rem] transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 group
+              className={`flex items-center gap-3 p-2 rounded-full transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 group
                 ${isCollapsed && !isOpen ? 'justify-center' : ''}
               `}
             >
@@ -197,7 +197,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
 
             <button
               onClick={handleLogout}
-              className={`w-full flex items-center gap-3 p-3.5 rounded-[1.5rem] transition-all text-slate-400 hover:text-rose-600 hover:bg-rose-50 group
+              className={`w-full flex items-center gap-3 p-3.5 rounded-full transition-all text-slate-400 hover:text-rose-600 hover:bg-rose-50 group
                 ${isCollapsed && !isOpen ? 'justify-center' : ''}
               `}
             >
