@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
   ShieldCheck, 
@@ -101,14 +100,16 @@ const Home: React.FC = () => {
     if (!activePet) return;
 
     STAT_ROUTINE.forEach(task => {
-      if (currentHour === task.startHour) {
-        const notificationKey = `notified_${task.id}_${todayKey}_${activePet.id}`;
+      const notificationHour = task.startHour - 1;
+      
+      if (currentHour === (notificationHour < 0 ? 23 : notificationHour)) {
+        const notificationKey = `notified_reminder_${task.id}_${todayKey}_${activePet.id}`;
         const alreadyNotified = localStorage.getItem(notificationKey);
         
         if (!alreadyNotified) {
           addNotification(
-            `Time for ${task.task}!`, 
-            `Hey! It's ${task.timeLabel}. Time to take care of ${activePet.name}.`,
+            `Upcoming: ${task.task}`, 
+            `${activePet.name}'s ${task.task.toLowerCase()} is scheduled in about an hour, at ${task.timeLabel}.`,
             'info'
           );
           localStorage.setItem(notificationKey, 'true');
