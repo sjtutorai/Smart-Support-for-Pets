@@ -12,7 +12,8 @@ import {
   Phone, 
   Palette,
   Plus,
-  Check
+  Check,
+  Bell
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -29,6 +30,8 @@ const THEME_PRESETS = [
   { name: 'Sunset', color: '#f97316' },
 ];
 
+const REMINDER_OPTIONS = [10, 20, 30, 40, 50, 60];
+
 const Settings: React.FC = () => {
   const { user } = useAuth();
   const { addNotification } = useNotifications();
@@ -38,6 +41,10 @@ const Settings: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('ssp_theme_color') || '#4f46e5');
+  const [reminderPref, setReminderPref] = useState(() => {
+    const saved = localStorage.getItem('ssp_reminder_preference');
+    return saved ? parseInt(saved, 10) : 10;
+  });
   
   // Username Validation States
   const [isValidatingUsername, setIsValidatingUsername] = useState(false);
@@ -105,6 +112,12 @@ const Settings: React.FC = () => {
     localStorage.setItem('ssp_theme_color', color);
     localStorage.setItem('ssp_theme_surface', color);
     addNotification('Primary Color Updated', 'Branding preferences updated.', 'success');
+  };
+  
+  const handleReminderChange = (minutes: number) => {
+    setReminderPref(minutes);
+    localStorage.setItem('ssp_reminder_preference', String(minutes));
+    addNotification('Reminder Time Updated', `You'll now be notified ${minutes < 60 ? `${minutes} minutes` : '1 hour'} before tasks.`, 'success');
   };
 
   const handleSaveProfile = async () => {
@@ -303,6 +316,34 @@ const Settings: React.FC = () => {
           </div>
         </div>
 
+        {/* Reminders */}
+        <div className="bg-white rounded-[3.5rem] p-10 md:p-14 border border-slate-100 shadow-sm space-y-12">
+          <div className="flex items-center gap-5">
+            <div className="p-4 bg-theme-light text-theme rounded-[2rem] transition-theme shadow-sm">
+              <Bell size={28} />
+            </div>
+            <div>
+              <h3 className="text-3xl font-black text-slate-900 tracking-tight">Task Reminders</h3>
+              <p className="text-slate-500 font-medium">Set how far in advance you get task notifications.</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-4 justify-center md:justify-start">
+            {REMINDER_OPTIONS.map((minutes) => (
+              <button
+                key={minutes}
+                onClick={() => handleReminderChange(minutes)}
+                className={`px-6 py-4 rounded-2xl font-black text-sm transition-all border-2 ${
+                  reminderPref === minutes
+                    ? 'bg-theme-light border-theme text-theme shadow-lg'
+                    : 'bg-slate-50 border-transparent text-slate-500 hover:border-slate-200'
+                }`}
+              >
+                Before {minutes < 60 ? `${minutes} min` : '1 hour'}
+              </button>
+            ))}
+          </div>
+        </div>
+        
         {/* Theme Picker */}
         <div className="bg-white rounded-[3.5rem] p-10 md:p-14 border border-slate-100 shadow-sm space-y-12">
           <div className="flex items-center gap-5">
