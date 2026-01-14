@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Menu, Bell, User as UserIcon, Trash2, CheckCircle2, AlertTriangle, Info, X, Search, Settings as SettingsIcon, Dog, Sparkles } from 'lucide-react';
 import Sidebar from './Sidebar';
@@ -61,8 +60,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     if (path === AppRoutes.PET_CARE) return "Daily Wellness";
     if (path === AppRoutes.CREATE_POST) return "Community Feed";
     if (path === AppRoutes.CHAT) return "Direct Messages";
+    if (path === AppRoutes.FIND_FRIENDS) return "Find Friends";
     if (path === AppRoutes.PET_PROFILE) return "Pet Family";
     if (path === AppRoutes.SETTINGS) return "Account Hub";
+    if (path.startsWith('/user/')) return "User Profile";
     return "SS Paw Pal";
   };
 

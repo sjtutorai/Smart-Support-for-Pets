@@ -242,6 +242,11 @@ const PetProfilePage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qrInputRef = useRef<HTMLInputElement>(null);
   const [newWeight, setNewWeight] = useState('');
+  
+  // States for scanner modal
+  const [isIdentifying, setIsIdentifying] = useState(false);
+  const [scanView, setScanView] = useState<'options' | 'manualInput'>('options');
+  const [manualIdInput, setManualIdInput] = useState('');
 
   // Optimized pet loading effect to prevent unnecessary loops
   useEffect(() => {
@@ -308,15 +313,15 @@ const PetProfilePage: React.FC = () => {
   };
 
   const identifyPet = async (petId: string) => {
-    setIsScanning(true);
+    if (!petId.trim()) return;
     setScannedPet(null);
     setNotificationSent(false);
     setPermissionRequested(false);
+    setIsIdentifying(true);
     try {
-      const petData = await getPetById(petId);
+      const petData = await getPetById(petId.trim());
       if (petData) {
         setScannedPet(petData);
-        // Automatically send a "scan detected" message to the owner
         await sendFoundPetNotification(petData, user?.displayName || "A Concerned Pet Parent", user?.uid);
       } else {
         alert("This SSP Tag ID was not found in our global database.");
@@ -324,6 +329,8 @@ const PetProfilePage: React.FC = () => {
     } catch (err) {
       console.error(err);
       alert("Database lookup failed. Check your internet.");
+    } finally {
+      setIsIdentifying(false);
     }
   };
 
@@ -458,6 +465,14 @@ const PetProfilePage: React.FC = () => {
 
   const todayStr = new Date().toISOString().split("T")[0];
 
+  const resetScanModal = () => {
+    setIsScanning(false);
+    setScannedPet(null);
+    setScanView('options');
+    setManualIdInput('');
+    setIsIdentifying(false);
+  };
+
   return (
     <div className="max-w-6xl mx-auto pb-20 space-y-12">
       <div className="flex flex-col md:flex-row items-center justify-between gap-8">
@@ -501,7 +516,7 @@ const PetProfilePage: React.FC = () => {
           <div className="bg-white rounded-[3.5rem] p-10 max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden relative">
             <div className="flex items-center justify-between mb-8">
               <h3 className="text-2xl font-black text-slate-800 tracking-tight">Identify SSP Tag</h3>
-              <button onClick={() => { setIsScanning(false); setScannedPet(null); }} className="p-2 text-slate-400 hover:text-slate-600"><X size={24} /></button>
+              <button onClick={resetScanModal} className="p-2 text-slate-400 hover:text-slate-600"><X size={24} /></button>
             </div>
 
             {scannedPet ? (
@@ -547,7 +562,7 @@ const PetProfilePage: React.FC = () => {
                       disabled={isNotifying}
                       className="w-full bg-white text-slate-500 py-4 rounded-2xl font-black text-xs uppercase tracking-widest border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
                     >
-                      <UserPlus size={16} /> Request Permission to Register
+                      <UserPlus size={16} /> Add Pet to My Family (Request)
                     </button>
                   )}
 
@@ -559,9 +574,34 @@ const PetProfilePage: React.FC = () => {
                   </button>
                 </div>
               </div>
+            ) : scanView === 'manualInput' ? (
+              <div className="space-y-8 animate-in fade-in">
+                <button onClick={() => setScanView('options')} className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest hover:text-theme">
+                  <ArrowLeft size={16} /> Back to Options
+                </button>
+                <form onSubmit={(e) => { e.preventDefault(); identifyPet(manualIdInput); }} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700">Enter SSP Tag ID</label>
+                    <input 
+                      autoFocus
+                      value={manualIdInput}
+                      onChange={(e) => setManualIdInput(e.target.value)}
+                      placeholder="e.g., 1a2b3c4d"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 text-lg font-mono tracking-widest outline-none focus:ring-4 focus:ring-theme/10 focus:bg-white"
+                    />
+                  </div>
+                  <button 
+                    type="submit" 
+                    disabled={!manualIdInput.trim() || isIdentifying}
+                    className="w-full py-5 bg-theme text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:bg-theme-hover shadow-xl shadow-theme/10 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {isIdentifying ? <Loader2 className="animate-spin" size={24} /> : <Search size={24} />}
+                    {isIdentifying ? 'Searching...' : 'Find Pet'}
+                  </button>
+                </form>
+              </div>
             ) : (
               <div className="space-y-8">
-                {/* Visual Scanner Area */}
                 <div className="relative w-full aspect-square md:aspect-video bg-slate-900 rounded-[2.5rem] overflow-hidden group">
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <QrCode size={100} className="text-white/20 animate-pulse mb-4" />
@@ -583,7 +623,7 @@ const PetProfilePage: React.FC = () => {
                     <input type="file" ref={qrInputRef} className="hidden" accept="image/*" onChange={handleQRUpload} />
                   </button>
                   <button 
-                    onClick={() => { const id = prompt("Enter SSP Tag ID (Found on the physical tag):"); if(id) identifyPet(id); }}
+                    onClick={() => setScanView('manualInput')}
                     className="flex flex-col items-center gap-3 p-8 bg-slate-50 rounded-[2rem] border border-slate-200 hover:border-theme hover:bg-white transition-all group shadow-sm"
                   >
                     <div className="p-3 bg-white rounded-2xl shadow-sm group-hover:scale-110 transition-transform">

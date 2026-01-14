@@ -81,7 +81,7 @@ const FindFriends: React.FC = () => {
   return (
     <div className="max-w-3xl mx-auto space-y-10 pb-20 animate-fade-in">
       <div>
-        <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Find Friends</h2>
+        <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Exploration</h2>
         <p className="text-slate-500 font-medium">Connect with other pet parents by searching their email or username.</p>
       </div>
 
