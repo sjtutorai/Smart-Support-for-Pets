@@ -105,7 +105,7 @@ export const getPetByShortId = async (shortId: string) => {
   if (!shortId) return null;
   const q = query(
     collection(db, "pets"), 
-    where("shortId", "==", shortId.toUpperCase().trim()), 
+    where("shortId", "==", shortId.trim().toUpperCase()), 
     limit(1)
   );
   const querySnapshot = await getDocs(q);
