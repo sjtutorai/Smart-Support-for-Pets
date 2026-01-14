@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, UserPlus, UserCheck, Mail, Loader2, User as UserIcon, MessageSquare } from 'lucide-react';
+import { Search, UserPlus, UserCheck, Loader2, User as UserIcon, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { searchUsersByEmail, followUser, unfollowUser, onFollowsUpdate, startChat } from '../services/firebase';
+import { searchUsers, followUser, unfollowUser, onFollowsUpdate, startChat } from '../services/firebase';
 import { useNavigate } from 'react-router-dom';
 import { AppRoutes } from '../types';
 import debounce from 'lodash.debounce';
@@ -41,9 +40,10 @@ const FindFriends: React.FC = () => {
     setIsLoading(true);
     setNoResults(false);
     try {
-      const users = await searchUsersByEmail(query);
-      setResults(users as FoundUser[]);
-      if (users.length === 0) {
+      const users = await searchUsers(query);
+      const filteredUsers = users.filter(u => u.id !== user.uid); // Exclude current user from results
+      setResults(filteredUsers as FoundUser[]);
+      if (filteredUsers.length === 0) {
         setNoResults(true);
       }
     } catch (error) {
@@ -81,16 +81,16 @@ const FindFriends: React.FC = () => {
     <div className="max-w-3xl mx-auto space-y-10 pb-20 animate-fade-in">
       <div>
         <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Find Friends</h2>
-        <p className="text-slate-500 font-medium">Connect with other pet parents by searching their email.</p>
+        <p className="text-slate-500 font-medium">Connect with other pet parents by searching their email or username.</p>
       </div>
 
       <div className="relative">
-        <Mail size={20} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Search size={20} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
-          type="email"
+          type="text"
           value={searchQuery}
           onChange={handleSearchChange}
-          placeholder="Enter an email address to find a user..."
+          placeholder="Enter email or username to find a user..."
           className="w-full bg-white border border-slate-200 rounded-2xl py-6 pl-14 pr-6 text-lg font-medium outline-none focus:ring-4 focus:ring-indigo-100 transition-all shadow-sm"
         />
         {isLoading && <Loader2 size={20} className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 animate-spin" />}

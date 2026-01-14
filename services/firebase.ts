@@ -1,4 +1,3 @@
-
 import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
@@ -246,15 +245,49 @@ export const sendChatMessage = async (chatId: string, senderId: string, text: st
   });
 };
 
-export const searchUsersByEmail = async (email: string) => {
-  if (!email) return [];
-  const q = query(
+export const searchUsers = async (searchTerm: string) => {
+  if (!searchTerm?.trim()) return [];
+  const term = searchTerm.toLowerCase().trim();
+
+  // Firestore doesn't support OR queries on different fields.
+  // We run two separate queries and merge the results.
+  const emailQuery = query(
     collection(db, "users"),
-    where("email", "==", email.toLowerCase().trim())
+    where("email", ">=", term),
+    where("email", "<=", term + '\uf8ff'),
+    limit(10)
   );
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs
-    .map(doc => ({ id: doc.id, ...doc.data() }));
+
+  const usernameQuery = query(
+    collection(db, "users"),
+    where("username", ">=", term),
+    where("username", "<=", term + '\uf8ff'),
+    limit(10)
+  );
+  
+  try {
+    const [emailSnapshot, usernameSnapshot] = await Promise.all([
+      getDocs(emailQuery),
+      getDocs(usernameQuery)
+    ]);
+
+    const usersMap = new Map();
+    
+    emailSnapshot.docs.forEach(doc => {
+      usersMap.set(doc.id, { id: doc.id, ...doc.data() });
+    });
+    
+    usernameSnapshot.docs.forEach(doc => {
+      if (!usersMap.has(doc.id)) {
+        usersMap.set(doc.id, { id: doc.id, ...doc.data() });
+      }
+    });
+
+    return Array.from(usersMap.values());
+  } catch (error) {
+    console.error("Error searching users:", error);
+    return [];
+  }
 };
 
 export const followUser = async (currentUserId: string, targetUserId: string) => {
