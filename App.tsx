@@ -364,8 +364,11 @@ const PetProfilePage: React.FC = () => {
     const updatedPets = [...pets, completePet];
     await savePetsToStorage(updatedPets);
     setSelectedPet(completePet);
-    setSaveSuccess(true);
-    setTimeout(() => { setIsAdding(false); setSaveSuccess(false); setStep(1); }, 1500);
+    
+    // Close form immediately and reset state for next time
+    setIsAdding(false);
+    setStep(1);
+    setNewPet({ name: '', breed: '', birthday: '', bio: '', species: 'Dog', healthNotes: '', weightHistory: [], vaccinations: [] });
   };
 
   const handleUpdatePet = async (e: React.FormEvent) => {
@@ -378,8 +381,9 @@ const PetProfilePage: React.FC = () => {
     const updatedPets = pets.map(p => p.id === selectedPet.id ? updatedPet : p);
     await savePetsToStorage(updatedPets);
     setSelectedPet(updatedPet);
-    setSaveSuccess(true);
-    setTimeout(() => { setIsEditing(false); setSaveSuccess(false); }, 1500);
+    
+    // Close form immediately
+    setIsEditing(false);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
