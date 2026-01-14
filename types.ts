@@ -45,6 +45,7 @@ export interface VaccinationRecord {
 
 export interface PetProfile {
   id: string;
+  shortId?: string;
   ownerId: string;
   name: string;
   species: string;

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useParams } from "react-router-dom";
 import Layout from './components/Layout';
@@ -5,7 +6,7 @@ import { AppRoutes, PetProfile, WeightRecord, VaccinationRecord } from './types'
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { GoogleGenAI } from "@google/genai";
-import { syncPetToDb, getPetById, sendFoundPetNotification, sendRegistrationPermissionRequest } from './services/firebase';
+import { syncPetToDb, getPetById, getPetByShortId, sendFoundPetNotification, sendRegistrationPermissionRequest } from './services/firebase';
 import jsQR from "jsqr";
 import { 
   Dog, Plus, PawPrint, Weight, Palette, Fingerprint, 
@@ -248,16 +249,29 @@ const PetProfilePage: React.FC = () => {
   const [scanView, setScanView] = useState<'options' | 'manualInput'>('options');
   const [manualIdInput, setManualIdInput] = useState('');
 
-  // Optimized pet loading effect to prevent unnecessary loops
   useEffect(() => {
     if (!user?.uid) return;
     const saved = localStorage.getItem(`ssp_pets_${user.uid}`);
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
-        setPets(parsed);
-        if (parsed.length > 0 && (!selectedPet || !parsed.find((p: PetProfile) => p.id === selectedPet.id))) {
-          setSelectedPet(parsed[0]);
+        let parsed = JSON.parse(saved);
+        
+        let wasUpdated = false;
+        const migratedPets = parsed.map((p: PetProfile) => {
+          if (!p.shortId && p.id) {
+            wasUpdated = true;
+            return { ...p, shortId: p.id.slice(0, 8) };
+          }
+          return p;
+        });
+
+        setPets(migratedPets);
+        if (wasUpdated) {
+          savePetsToStorage(migratedPets);
+        }
+
+        if (migratedPets.length > 0 && (!selectedPet || !migratedPets.find((p: PetProfile) => p.id === selectedPet.id))) {
+          setSelectedPet(migratedPets[0]);
         }
       } catch (e) {
         console.error("Storage error:", e);
@@ -312,25 +326,37 @@ const PetProfilePage: React.FC = () => {
     }
   };
 
-  const identifyPet = async (petId: string) => {
-    if (!petId.trim()) return;
+  const identifyPet = async (id: string) => {
+    if (!id.trim()) return;
     setScannedPet(null);
     setNotificationSent(false);
     setPermissionRequested(false);
     setIsIdentifying(true);
     try {
-      const petData = await getPetById(petId.trim());
-      if (petData) {
-        setScannedPet(petData);
-        await sendFoundPetNotification(petData, user?.displayName || "A Concerned Pet Parent", user?.uid);
-      } else {
-        alert("This SSP Tag ID was not found in our global database.");
-      }
+        let petData: any = null;
+        const trimmedId = id.trim();
+        
+        // A simple check to differentiate between a short ID (8 chars) and a full UUID
+        if (trimmedId.length > 8) {
+            const data = await getPetById(trimmedId);
+            if (data) {
+                petData = { id: trimmedId, ...data };
+            }
+        } else {
+            petData = await getPetByShortId(trimmedId);
+        }
+
+        if (petData) {
+            setScannedPet(petData);
+            await sendFoundPetNotification(petData, user?.displayName || "A Concerned Pet Parent", user?.uid);
+        } else {
+            alert("This SSP Tag ID was not found in our global database.");
+        }
     } catch (err) {
-      console.error(err);
-      alert("Database lookup failed. Check your internet.");
+        console.error(err);
+        alert("Database lookup failed. Check your internet.");
     } finally {
-      setIsIdentifying(false);
+        setIsIdentifying(false);
     }
   };
 
@@ -365,9 +391,10 @@ const PetProfilePage: React.FC = () => {
     setError(null);
     if (!newPet.birthday || new Date(newPet.birthday) > new Date()) { setError("Birth date cannot be in the future."); return; }
     const id = crypto.randomUUID();
+    const shortId = id.slice(0, 8);
     const { years, months } = calculateAge(newPet.birthday || '');
     const qrCodeUrl = generateQRCode(id);
-    const completePet: PetProfile = { ...newPet as PetProfile, id, ownerId: user?.uid || '', ownerName: user?.displayName || 'Pet Parent', qrCodeUrl, ageYears: String(years), ageMonths: String(months), weightHistory: [], vaccinations: [], isPublic: true };
+    const completePet: PetProfile = { ...newPet as PetProfile, id, shortId, ownerId: user?.uid || '', ownerName: user?.displayName || 'Pet Parent', qrCodeUrl, ageYears: String(years), ageMonths: String(months), weightHistory: [], vaccinations: [], isPublic: true };
     const updatedPets = [...pets, completePet];
     await savePetsToStorage(updatedPets);
     setSelectedPet(completePet);
@@ -384,7 +411,8 @@ const PetProfilePage: React.FC = () => {
     setError(null);
     if (!selectedPet.birthday || new Date(selectedPet.birthday) > new Date()) { setError("Birth date cannot be in the future."); return; }
     const { years, months } = calculateAge(selectedPet.birthday || '');
-    const updatedPet = { ...selectedPet, ageYears: String(years), ageMonths: String(months), qrCodeUrl: generateQRCode(selectedPet.id) };
+    const shortId = selectedPet.id.slice(0, 8);
+    const updatedPet = { ...selectedPet, ageYears: String(years), ageMonths: String(months), qrCodeUrl: generateQRCode(selectedPet.id), shortId };
     const updatedPets = pets.map(p => p.id === selectedPet.id ? updatedPet : p);
     await savePetsToStorage(updatedPets);
     setSelectedPet(updatedPet);
@@ -728,7 +756,7 @@ const PetProfilePage: React.FC = () => {
                 </div>
                 <div className="w-full p-4 bg-slate-50 rounded-[2rem] flex flex-col items-center gap-4 border border-slate-100/50">
                   <img src={generateQRCode(selectedPet.id)} className="w-40 h-40 bg-white p-2 rounded-2xl shadow-inner border border-slate-100" alt="QR ID" />
-                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] font-mono">SSP-ID: {selectedPet.id.slice(0, 8).toUpperCase()}</div>
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] font-mono">SSP-ID: {selectedPet.id.slice(0, 8)}</div>
                 </div>
               </div>
             </div>

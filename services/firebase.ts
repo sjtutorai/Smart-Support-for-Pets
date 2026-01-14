@@ -100,6 +100,20 @@ export const getPetById = async (id: string) => {
   return snap.exists() ? snap.data() : null;
 };
 
+export const getPetByShortId = async (shortId: string) => {
+  if (!shortId) return null;
+  const q = query(
+    collection(db, "pets"), 
+    where("shortId", "==", shortId.toLowerCase().trim()), 
+    limit(1)
+  );
+  const querySnapshot = await getDocs(q);
+  if (querySnapshot.empty) return null;
+  
+  const petDoc = querySnapshot.docs[0];
+  return { id: petDoc.id, ...petDoc.data() };
+};
+
 export const sendFoundPetNotification = async (pet: any, finderName: string, finderId?: string) => {
   if (!pet.ownerId) return;
   const notifRef = collection(db, "users", pet.ownerId, "notifications");
