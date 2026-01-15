@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useParams } from "react-router-dom";
 import Layout from './components/Layout';
@@ -290,8 +289,8 @@ const PetProfilePage: React.FC = () => {
             const code = jsQR(imageData.data, imageData.width, imageData.height);
             if (code) {
               const url = code.data;
-              // Extract pet ID from URL format: /v/id-string
-              const match = url.match(/\/v\/([a-f0-9-]+)/);
+              // Extract pet ID from URL format: /v/ID-STRING
+              const match = url.match(/\/v\/([a-zA-Z0-9-]+)/);
               if (match && match[1]) {
                 identifyPet(match[1]);
               } else {
@@ -357,12 +356,19 @@ const PetProfilePage: React.FC = () => {
 
   const handleAddPet = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     setError(null);
     if (!newPet.birthday || new Date(newPet.birthday) > new Date()) { setError("Birth date cannot be in the future."); return; }
-    const id = crypto.randomUUID();
+    
+    const ownerInitial = user.displayName?.charAt(0).toUpperCase() || 'X';
+    const petInitial = newPet.name?.charAt(0).toUpperCase() || 'X';
+    const birthDate = newPet.birthday?.replace(/-/g, '') || '00000000';
+    const uniqueSuffix = user.uid.slice(0, 4);
+    const id = `${ownerInitial}${petInitial}${birthDate}-${uniqueSuffix}`;
+    
     const { years, months } = calculateAge(newPet.birthday || '');
     const qrCodeUrl = generateQRCode(id);
-    const completePet: PetProfile = { ...newPet as PetProfile, id, ownerId: user?.uid || '', ownerName: user?.displayName || 'Pet Parent', qrCodeUrl, ageYears: String(years), ageMonths: String(months), weightHistory: [], vaccinations: [], isPublic: true };
+    const completePet: PetProfile = { ...newPet as PetProfile, id, ownerId: user.uid, ownerName: user.displayName || 'Pet Parent', qrCodeUrl, ageYears: String(years), ageMonths: String(months), weightHistory: [], vaccinations: [], isPublic: true };
     const updatedPets = [...pets, completePet];
     await savePetsToStorage(updatedPets);
     setSelectedPet(completePet);
@@ -686,7 +692,7 @@ const PetProfilePage: React.FC = () => {
                 </div>
                 <div className="w-full p-4 bg-slate-50 rounded-[2rem] flex flex-col items-center gap-4 border border-slate-100/50">
                   <img src={generateQRCode(selectedPet.id)} className="w-40 h-40 bg-white p-2 rounded-2xl shadow-inner border border-slate-100" alt="QR ID" />
-                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] font-mono">SSP-ID: {selectedPet.id.slice(0, 8).toUpperCase()}</div>
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] font-mono">SSP-ID: {selectedPet.id.toUpperCase()}</div>
                 </div>
               </div>
             </div>
