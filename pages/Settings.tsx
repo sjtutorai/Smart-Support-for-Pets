@@ -11,7 +11,8 @@ import {
   Phone, 
   Palette,
   Plus,
-  Check
+  Check,
+  Layers
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -28,6 +29,15 @@ const THEME_PRESETS = [
   { name: 'Sunset', color: '#f97316' },
 ];
 
+const SURFACE_PRESETS = [
+  { name: 'Pure White', color: '#ffffff' },
+  { name: 'Slate', color: '#334155' },
+  { name: 'Stone', color: '#78716c' },
+  { name: 'Sky', color: '#38bdf8' },
+  { name: 'Rose', color: '#fb7185' },
+  { name: 'Amber', color: '#fcd34d' },
+];
+
 const Settings: React.FC = () => {
   const { user } = useAuth();
   const { addNotification } = useNotifications();
@@ -37,6 +47,7 @@ const Settings: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('ssp_theme_color') || '#4f46e5');
+  const [currentSurface, setCurrentSurface] = useState(() => localStorage.getItem('ssp_surface_color') || '#334155');
   
   // Username Validation States
   const [isValidatingUsername, setIsValidatingUsername] = useState(false);
@@ -102,6 +113,13 @@ const Settings: React.FC = () => {
     root.style.setProperty('--theme-color-light', color + '15');
     localStorage.setItem('ssp_theme_color', color);
     addNotification('Primary Color Updated', 'Branding preferences updated.', 'success');
+  };
+
+  const changeSurfaceTheme = (color: string) => {
+    setCurrentSurface(color);
+    document.documentElement.style.setProperty('--theme-surface', color);
+    localStorage.setItem('ssp_surface_color', color);
+    addNotification('Surface Color Updated', 'Aesthetic preferences updated.', 'success');
   };
 
   const handleSaveProfile = async () => {
@@ -346,6 +364,55 @@ const Settings: React.FC = () => {
                 type="color" 
                 className="absolute inset-0 opacity-0 cursor-pointer"
                 onChange={(e) => changeTheme(e.target.value)}
+              />
+            </label>
+          </div>
+        </div>
+        
+        {/* Theme Picker - Pod 2: Surface */}
+        <div className="bg-white rounded-[3.5rem] p-10 md:p-14 border border-slate-100 shadow-sm space-y-12">
+          <div className="flex items-center gap-5">
+            <div className="p-4 bg-slate-100 text-slate-500 rounded-[2rem] shadow-sm">
+              <Layers size={28} />
+            </div>
+            <div>
+              <h3 className="text-3xl font-black text-slate-900 tracking-tight">Surface Aesthetics</h3>
+              <p className="text-slate-500 font-medium">Customize the active navigation surface color.</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-6 justify-center md:justify-start">
+            {SURFACE_PRESETS.map((theme) => (
+              <button
+                key={theme.color}
+                onClick={() => changeSurfaceTheme(theme.color)}
+                className={`group relative flex flex-col items-center gap-3 p-3 rounded-[2.5rem] transition-all duration-300 ${
+                  currentSurface === theme.color ? 'bg-slate-50 ring-2 ring-slate-100 scale-105 shadow-xl' : 'hover:bg-slate-50'
+                }`}
+              >
+                <div 
+                  className={`w-16 h-16 rounded-[2rem] shadow-lg transition-all duration-500 flex items-center justify-center border-4 border-white ring-1 ring-slate-200 ${
+                    currentSurface === theme.color ? 'scale-110' : ''
+                  }`}
+                  style={{ backgroundColor: theme.color }}
+                >
+                  {currentSurface === theme.color && <Check size={32} className={`${theme.color === '#ffffff' ? 'text-slate-900' : 'text-white'} animate-in zoom-in`} />}
+                </div>
+                <span className={`text-[10px] font-black uppercase tracking-widest ${
+                  currentSurface === theme.color ? 'text-theme' : 'text-slate-400'
+                }`}>
+                  {theme.name}
+                </span>
+              </button>
+            ))}
+            <label className="group relative flex flex-col items-center gap-3 p-3 rounded-[2.5rem] hover:bg-slate-50 cursor-pointer transition-all">
+              <div className="w-16 h-16 rounded-[2rem] shadow-lg bg-gradient-to-tr from-rose-500 via-indigo-500 to-emerald-500 flex items-center justify-center transition-all group-hover:rotate-12">
+                <Plus size={32} className="text-white" />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Custom</span>
+              <input 
+                type="color" 
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                onChange={(e) => changeSurfaceTheme(e.target.value)}
               />
             </label>
           </div>

@@ -12,7 +12,7 @@
             --theme-color: #4f46e5;
             --theme-color-hover: #4338ca;
             --theme-color-light: #eef2ff;
-            --theme-surface: #0f172a;
+            --theme-surface: #334155;
         }
         body {
             font-family: 'Inter', sans-serif;
@@ -79,10 +79,12 @@
         // Immediate Theme Application to prevent FOUC
         (function() {
             const savedTheme = localStorage.getItem('ssp_theme_color') || '#4f46e5';
+            const savedSurface = localStorage.getItem('ssp_surface_color') || '#334155';
             const root = document.documentElement;
             root.style.setProperty('--theme-color', savedTheme);
             root.style.setProperty('--theme-color-hover', savedTheme + 'dd'); 
             root.style.setProperty('--theme-color-light', savedTheme + '15');
+            root.style.setProperty('--theme-surface', savedSurface);
         })();
     </script>
 <script type="importmap">
