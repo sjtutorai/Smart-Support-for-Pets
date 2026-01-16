@@ -215,7 +215,7 @@ const PetProfilePage: React.FC = () => {
       const prompt = `A professional, high-quality, close-up studio portrait avatar of a ${selectedPet.breed} ${selectedPet.species} named ${selectedPet.name}. 4K, realistic, sharp details, warm lighting.`;
       const contents: any = { parts: [{ text: prompt }] };
       if (base64Source) contents.parts.push({ inlineData: { data: base64Source.split(',')[1], mimeType: 'image/png' } });
-      const response = await ai.models.generateContent({ model: 'gemini-3-pro-preview', contents, config: { thinkingConfig: { thinkingBudget: 0 } } });
+      const response = await ai.models.generateContent({ model: 'gemini-3-pro-image-preview', contents, config: { imageConfig: { aspectRatio: "1:1", imageSize: "1K" } } });
       for (const part of response.candidates[0].content.parts) {
         if (part.inlineData) {
           const avatarUrl = `data:image/png;base64,${part.inlineData.data}`;
@@ -271,7 +271,7 @@ const PetProfilePage: React.FC = () => {
         <div className="flex items-center gap-4">
           <button 
             onClick={() => { setStep(1); setIsAdding(true); }} 
-            className="flex items-center gap-3 px-8 py-4 bg-theme text-white rounded-2xl font-black text-sm uppercase tracking-widest bg-theme-hover transition-all shadow-xl shadow-theme/10 active:scale-95 transition-theme"
+            className="flex items-center gap-3 px-8 py-4 bg-theme text-white rounded-2xl font-black text-sm uppercase tracking-widest bg-theme-hover transition-all shadow-xl shadow-theme/10 active:scale-95"
           >
             <Plus size={20} /> Add New Pet
           </button>
@@ -295,7 +295,7 @@ const PetProfilePage: React.FC = () => {
 
       {(isAdding || isEditing) ? (
         <div className="max-w-3xl mx-auto animate-fade-in bg-white p-14 rounded-[3.5rem] shadow-2xl border border-slate-100 relative overflow-hidden">
-          {saveSuccess && <div className="absolute inset-0 bg-theme/95 flex flex-col items-center justify-center z-50 text-white"><Check size={48} className="mb-4" /><h3 className="text-2xl font-black text-white">{isEditing ? 'Updated Successfully!' : 'Added to Family!'}</h3></div>}
+          {saveSuccess && <div className="absolute inset-0 bg-theme/95 flex flex-col items-center justify-center z-50 text-white"><Check size={48} className="mb-4" /><h3 className="text-2xl font-black">{isEditing ? 'Updated Successfully!' : 'Added to Family!'}</h3></div>}
           <div className="flex items-center justify-between mb-10">
             <h2 className="text-3xl font-black text-slate-900">{isAdding ? (step === 1 ? 'Pet Category' : step === 2 ? 'Which Species?' : 'Final Details') : 'Edit Profile'}</h2>
             <button onClick={() => { setIsAdding(false); setIsEditing(false); setStep(1); setError(null); }} className="text-slate-400 hover:text-slate-600 font-bold flex items-center gap-1"><X size={20} /> Cancel</button>
@@ -341,7 +341,7 @@ const PetProfilePage: React.FC = () => {
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Short Biography</label>
                 <textarea value={isAdding ? newPet.bio : selectedPet?.bio} onChange={e => isAdding ? setNewPet({ ...newPet, bio: e.target.value }) : setSelectedPet({...selectedPet!, bio: e.target.value})} className="w-full h-32 bg-slate-50 border border-slate-100 p-4 rounded-2xl outline-none ring-theme focus:ring-4 transition-all resize-none" placeholder="Short bio..." />
               </div>
-              <button type="submit" className="w-full bg-theme text-white py-5 rounded-[2.5rem] font-black text-lg bg-theme-hover transition-all shadow-xl shadow-theme/20 flex items-center justify-center gap-3 transition-theme"><Save size={20} /> {isAdding ? 'Register Pet' : 'Save Changes'}</button>
+              <button type="submit" className="w-full bg-theme text-white py-5 rounded-[2.5rem] font-black text-lg bg-theme-hover transition-all shadow-xl shadow-theme/20 flex items-center justify-center gap-3"><Save size={20} /> {isAdding ? 'Register Pet' : 'Save Changes'}</button>
             </form>
           )}
         </div>
@@ -349,7 +349,7 @@ const PetProfilePage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
           <div className="lg:col-span-1 space-y-8">
             <div className="bg-white rounded-[3rem] p-8 border border-slate-100 shadow-xl relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-full h-2 bg-theme transition-theme"></div>
+              <div className="absolute top-0 left-0 w-full h-2 bg-theme"></div>
               <div className="flex flex-col items-center text-center space-y-6">
                 <div className="relative">
                   <div className="w-48 h-48 rounded-[3.5rem] overflow-hidden border-4 border-white shadow-2xl transition-transform group-hover:scale-[1.02] bg-slate-50 flex items-center justify-center">
@@ -358,21 +358,21 @@ const PetProfilePage: React.FC = () => {
                   </div>
                   <div className="absolute -bottom-2 -right-2 flex gap-2">
                     <button onClick={() => fileInputRef.current?.click()} className="w-12 h-12 bg-white rounded-2xl shadow-xl flex items-center justify-center text-slate-600 hover:text-theme transition-all border border-slate-100" title="Upload Photo"><Camera size={20} /><input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} /></button>
-                    <button onClick={() => generateAIAvatar()} disabled={isGeneratingAvatar} className="w-12 h-12 bg-theme text-white rounded-2xl shadow-xl flex items-center justify-center bg-theme-hover transition-all disabled:opacity-50 transition-theme" title="Generate AI Avatar"><Wand2 size={20} /></button>
+                    <button onClick={() => generateAIAvatar()} disabled={isGeneratingAvatar} className="w-12 h-12 bg-theme text-white rounded-2xl shadow-xl flex items-center justify-center bg-theme-hover transition-all disabled:opacity-50" title="Generate AI Avatar"><Wand2 size={20} /></button>
                   </div>
                 </div>
                 {showKeyRequirement && (
                   <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100 animate-in zoom-in space-y-4">
                     <div className="flex items-center gap-3 text-amber-700"><Key size={20} /><h4 className="font-black text-sm uppercase">Paid API Key Required</h4></div>
                     <p className="text-xs text-amber-800 font-medium">To use high-quality AI avatar generation, you must select your own paid API key from a Google Cloud project.</p>
-                    <button onClick={() => { window.aistudio?.openSelectKey(); setShowKeyRequirement(false); }} className="w-full bg-theme text-white py-3 rounded-xl font-bold text-xs uppercase shadow-lg shadow-theme/20 transition-theme">Connect Key</button>
+                    <button onClick={() => { window.aistudio?.openSelectKey(); setShowKeyRequirement(false); }} className="w-full bg-theme text-white py-3 rounded-xl font-bold text-xs uppercase shadow-lg shadow-theme/20">Connect Key</button>
                     <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="block text-[10px] font-bold text-theme hover:underline">View Billing Documentation</a>
                   </div>
                 )}
                 <div className="space-y-1">
                   <h3 className="text-4xl font-black text-slate-900 tracking-tighter">{selectedPet.name}</h3>
                   <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">{selectedPet.breed} • {selectedPet.species}</p>
-                  <p className="text-xs font-black text-theme uppercase tracking-widest transition-theme">{selectedPet.ageYears}y {selectedPet.ageMonths}m Old</p>
+                  <p className="text-xs font-black text-theme uppercase tracking-widest">{selectedPet.ageYears}y {selectedPet.ageMonths}m Old</p>
                 </div>
               </div>
             </div>
@@ -383,7 +383,7 @@ const PetProfilePage: React.FC = () => {
               <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col justify-between">
                 <div className="flex items-center gap-4 mb-6"><div className="p-3 bg-rose-50 text-rose-600 rounded-2xl"><Weight size={24} /></div><h4 className="font-black text-slate-800 uppercase tracking-widest text-[10px]">Recent Weight (kg)</h4></div>
                 <div className="flex items-end gap-3 mb-6"><span className="text-6xl font-black tracking-tighter">{healthSummary?.lastWeight?.weight || '--'}</span><span className="text-slate-400 font-bold mb-2">KG</span></div>
-                <div className="flex gap-2"><input value={newWeight} onChange={e => setNewWeight(e.target.value)} type="number" className="flex-1 bg-slate-50 border border-slate-100 rounded-xl p-3 outline-none ring-theme focus:ring-4 transition-all" placeholder="Log weight..." /><button onClick={handleAddWeight} className="p-3 bg-theme text-white rounded-xl shadow-lg bg-theme-hover transition-all transition-theme"><Plus size={20} /></button></div>
+                <div className="flex gap-2"><input value={newWeight} onChange={e => setNewWeight(e.target.value)} type="number" className="flex-1 bg-slate-50 border border-slate-100 rounded-xl p-3 outline-none ring-theme focus:ring-4 transition-all" placeholder="Log weight..." /><button onClick={handleAddWeight} className="p-3 bg-theme text-white rounded-xl shadow-lg bg-theme-hover transition-all"><Plus size={20} /></button></div>
               </div>
               <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col justify-between">
                 <div className="flex items-center gap-4 mb-6"><div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><Syringe size={24} /></div><h4 className="font-black text-slate-800 uppercase tracking-widest text-[10px]">Next Vaccination</h4></div>
@@ -391,17 +391,17 @@ const PetProfilePage: React.FC = () => {
               </div>
             </div>
             <div className="bg-white rounded-[3.5rem] border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-              <div className="p-10 border-b border-slate-50 bg-gradient-to-r from-indigo-50/50 to-white flex items-center justify-between"><div className="flex items-center gap-4"><div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-100"><Brain size={24} /></div><div><h4 className="text-2xl font-black text-slate-800 tracking-tight">AI Health Advisor</h4><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Automated Clinical Insights</p></div></div>{!healthReport && !isGeneratingHealthReport && (<button onClick={generateHealthInsights} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-100 transition-all active:scale-95">Analyze Health</button>)}</div>
+              <div className="p-10 border-b border-slate-50 bg-gradient-to-r from-indigo-50/50 to-white flex items-center justify-between"><div className="flex items-center gap-4"><div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-100"><Brain size={24} /></div><div><h4 className="text-2xl font-black text-slate-800 tracking-tight">AI Health Advisor</h4><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Automated Clinical Insights</p></div></div>{!healthReport && !isGeneratingHealthReport && (<button onClick={generateHealthInsights} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-100">Analyze Health</button>)}</div>
               <div className="p-10 min-h-[150px] flex flex-col items-center justify-center">
-                {isGeneratingHealthReport ? (<div className="text-center space-y-4 py-10"><Loader2 size={48} className="animate-spin text-theme mx-auto transition-theme" /><div className="space-y-1"><p className="font-black text-slate-800 text-lg">Consulting AI Veterinarian...</p></div></div>) : healthReport ? (<div className="w-full prose prose-slate prose-indigo max-w-none text-slate-600"><div className="space-y-6">{healthReport.split('\n').map((line, i) => { const trimmed = line.trim(); if (trimmed.startsWith('##')) return <h5 key={i} className="text-xl font-black text-slate-900 mt-6 mb-2 border-b-2 border-theme-light inline-block">{trimmed.replace('##', '')}</h5>; if (trimmed.startsWith('*') || trimmed.startsWith('-')) return <li key={i} className="ml-4 mb-2 font-medium list-disc leading-relaxed">{trimmed.replace(/^[\*\-]\s/, '')}</li>; return <p key={i} className="leading-relaxed font-medium">{trimmed}</p>; })}</div><button onClick={generateHealthInsights} className="mt-10 text-[10px] font-black text-theme uppercase tracking-widest flex items-center gap-2 hover:underline transition-theme"><RefreshCcw size={12} /> Refresh Medical Insights</button></div>) : (<div className="text-center space-y-4 py-6"><div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto"><Sparkles className="text-slate-200" size={32} /></div><p className="text-slate-400 font-medium italic">No recent analysis. Tap 'Analyze Health' to process your pet's record.</p></div>)}
+                {isGeneratingHealthReport ? (<div className="text-center space-y-4 py-10"><Loader2 size={48} className="animate-spin text-theme mx-auto" /><div className="space-y-1"><p className="font-black text-slate-800 text-lg">Consulting AI Veterinarian...</p></div></div>) : healthReport ? (<div className="w-full prose prose-slate prose-indigo max-w-none text-slate-600"><div className="space-y-6">{healthReport.split('\n').map((line, i) => { const trimmed = line.trim(); if (trimmed.startsWith('##')) return <h5 key={i} className="text-xl font-black text-slate-900 mt-6 mb-2 border-b-2 border-theme-light inline-block">{trimmed.replace('##', '')}</h5>; if (trimmed.startsWith('*') || trimmed.startsWith('-')) return <li key={i} className="ml-4 mb-2 font-medium list-disc leading-relaxed">{trimmed.replace(/^[\*\-]\s/, '')}</li>; return <p key={i} className="leading-relaxed font-medium">{trimmed}</p>; })}</div><button onClick={generateHealthInsights} className="mt-10 text-[10px] font-black text-theme uppercase tracking-widest flex items-center gap-2 hover:underline"><RefreshCcw size={12} /> Refresh Medical Insights</button></div>) : (<div className="text-center space-y-4 py-6"><div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto"><Sparkles className="text-slate-200" size={32} /></div><p className="text-slate-400 font-medium italic">No recent analysis. Tap 'Analyze Health' to process your pet's record.</p></div>)}
               </div>
             </div>
-            <div className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-sm"><div className="flex items-center justify-between mb-8"><h4 className="text-2xl font-black text-slate-800 flex items-center gap-3"><LineChart className="text-theme transition-theme" /> Vital Statistics</h4></div><div className="space-y-4 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">{selectedPet.weightHistory.length > 0 ? selectedPet.weightHistory.map((w, idx) => (<div key={idx} className="flex items-center justify-between p-5 bg-slate-50/50 rounded-3xl border border-white hover:bg-slate-50 transition-colors"><div className="flex items-center gap-4"><div className="w-2 h-2 rounded-full bg-theme opacity-60 transition-theme"></div><span className="font-black text-slate-400 text-xs uppercase tracking-widest">{new Date(w.date).toLocaleDateString()}</span></div><span className="font-black text-slate-800 text-xl">{w.weight} kg</span></div>)) : <div className="py-20 text-center text-slate-400 font-medium italic">No vital records found.</div>}</div></div>
+            <div className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-sm"><div className="flex items-center justify-between mb-8"><h4 className="text-2xl font-black text-slate-800 flex items-center gap-3"><LineChart className="text-theme" /> Vital Statistics</h4></div><div className="space-y-4 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">{selectedPet.weightHistory.length > 0 ? selectedPet.weightHistory.map((w, idx) => (<div key={idx} className="flex items-center justify-between p-5 bg-slate-50/50 rounded-3xl border border-white hover:bg-slate-50 transition-colors"><div className="flex items-center gap-4"><div className="w-2 h-2 rounded-full bg-theme opacity-60"></div><span className="font-black text-slate-400 text-xs uppercase tracking-widest">{new Date(w.date).toLocaleDateString()}</span></div><span className="font-black text-slate-800 text-xl">{w.weight} kg</span></div>)) : <div className="py-20 text-center text-slate-400 font-medium italic">No vital records found.</div>}</div></div>
             <div className="flex justify-end pt-4"><button onClick={() => { if(window.confirm("Permanently remove this pet profile?")) { const updated = pets.filter(p => p.id !== selectedPet.id); savePetsToStorage(updated); setSelectedPet(updated[0] || null); } }} className="flex items-center gap-2 text-rose-500 font-black text-xs uppercase tracking-widest hover:text-rose-700 transition-all"><Trash2 size={16} /> Delete Companion Profile</button></div>
           </div>
         </div>
       ) : (
-        <div className="py-32 text-center"><div className="bg-theme-light w-24 h-24 rounded-[3rem] flex items-center justify-center mx-auto mb-8 text-theme shadow-inner transition-theme"><Dog size={48} /></div><h3 className="text-3xl font-black text-slate-900 mb-4 tracking-tight">Family Registry Empty</h3><p className="text-slate-500 font-medium mb-10 max-w-sm mx-auto">Register your companions to track their health and behavior.</p><button onClick={() => { setStep(1); setIsAdding(true); }} className="bg-theme text-white px-10 py-5 rounded-[2rem] font-black shadow-2xl shadow-theme/20 bg-theme-hover transition-all active:scale-95 transition-theme">Add First Pet</button></div>
+        <div className="py-32 text-center"><div className="bg-theme-light w-24 h-24 rounded-[3rem] flex items-center justify-center mx-auto mb-8 text-theme shadow-inner"><Dog size={48} /></div><h3 className="text-3xl font-black text-slate-900 mb-4 tracking-tight">Family Registry Empty</h3><p className="text-slate-500 font-medium mb-10 max-w-sm mx-auto">Register your companions to track their health and behavior.</p><button onClick={() => { setStep(1); setIsAdding(true); }} className="bg-theme text-white px-10 py-5 rounded-[2rem] font-black shadow-2xl shadow-theme/20 bg-theme-hover transition-all active:scale-95">Add First Pet</button></div>
       )}
     </div>
   );

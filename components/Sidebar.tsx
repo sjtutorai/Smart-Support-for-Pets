@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
@@ -13,8 +14,7 @@ import {
   Sparkles,
   Send,
   User as UserIcon,
-  UserSearch,
-  LayoutGrid
+  UserSearch
 } from 'lucide-react';
 import { AppRoutes } from '../types';
 import { logout } from '../services/firebase';
@@ -50,7 +50,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
       ]
     },
     {
-      title: "Medical",
+      title: "Records",
       items: [
         { label: 'Health Hub', path: AppRoutes.HEALTH_CHECKUP, icon: Stethoscope },
         { label: 'Pet Family', path: AppRoutes.PET_PROFILE, icon: Dog },
@@ -71,65 +71,64 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
 
   return (
     <>
-      {/* Mobile Backdrop - High Blur Overlay */}
+      {/* Mobile Backdrop - High Blur */}
       <div 
-        className={`fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] transition-all duration-700 md:hidden ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[60] transition-all duration-500 md:hidden ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setIsOpen(false)}
       />
 
-      {/* Slide Navigation Aside */}
+      {/* Slide Navigation Container */}
       <aside className={`
-        fixed inset-y-0 left-0 z-[70] bg-white/80 backdrop-blur-2xl border-r border-slate-200/50 
-        transform transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]
-        md:translate-x-0
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-        ${isCollapsed ? 'md:w-[96px]' : 'lg:w-[320px] md:w-[280px]'}
-        flex flex-col shadow-[20px_0_80px_-20px_rgba(0,0,0,0.08)]
+        fixed inset-y-0 left-0 z-[70] bg-white/95 backdrop-blur-3xl border-r border-slate-200/60 
+        transform transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+        md:relative md:translate-x-0
+        ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        ${isCollapsed ? 'md:w-24' : 'lg:w-80 md:w-72'}
+        flex flex-col shadow-[20px_0_80px_-20px_rgba(0,0,0,0.06)]
       `}>
         
-        {/* Branding Header Area */}
-        <div className={`h-28 flex items-center px-6 shrink-0 relative transition-all duration-500 ${isCollapsed ? 'justify-center' : ''}`}>
+        {/* Branding Section */}
+        <div className="h-28 flex items-center px-6 shrink-0 relative">
           <Link 
             to={AppRoutes.HOME}
-            className={`flex items-center gap-4 group transition-all duration-500 ${isCollapsed ? 'scale-90' : ''}`}
+            className={`flex items-center gap-4 transition-all duration-500 ${isCollapsed && !isOpen ? 'justify-center w-full' : ''}`}
           >
             <div className={`
-              bg-theme rounded-[1.5rem] p-0.5 shadow-2xl shadow-theme/20 flex-shrink-0 flex items-center justify-center transition-all duration-500
-              ${isCollapsed ? 'w-14 h-14' : 'w-16 h-16'}
-              group-hover:rotate-12 active:scale-95 transition-theme
+              bg-theme rounded-[1.25rem] p-0.5 shadow-2xl shadow-theme/30 flex-shrink-0 flex items-center justify-center transition-all duration-500
+              ${isCollapsed ? 'w-12 h-12' : 'w-14 h-14'}
+              hover:rotate-12 active:scale-90
             `}>
-              <div className="w-full h-full bg-white rounded-[1.2rem] p-1.5 flex items-center justify-center">
+              <div className="w-full h-full bg-white rounded-[1rem] p-1.5 flex items-center justify-center">
                 <img src={LOGO_URL} alt="Logo" className="w-full h-full object-contain" />
               </div>
             </div>
             {(!isCollapsed || isOpen) && (
-              <div className="overflow-hidden animate-in fade-in slide-in-from-left-4 duration-700">
-                <span className="font-black text-slate-900 whitespace-nowrap tracking-tighter text-2xl leading-tight block">SS Paw Pal</span>
-                <span className="text-[10px] font-black text-theme uppercase tracking-[0.4em] mt-0.5 block">Companion OS</span>
+              <div className="overflow-hidden animate-in fade-in slide-in-from-left-4 duration-500">
+                <span className="font-black text-slate-900 whitespace-nowrap tracking-tighter text-2xl leading-none block">SS Paw Pal</span>
+                <span className="text-[10px] font-black text-theme uppercase tracking-[0.4em] mt-1 block">Care Engine</span>
               </div>
             )}
           </Link>
           
-          {/* Mobile Close Button */}
           <button 
             onClick={() => setIsOpen(false)}
-            className="md:hidden absolute top-9 right-4 p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-2xl transition-all"
+            className="md:hidden absolute top-9 right-4 p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
           >
             <X size={24} />
           </button>
         </div>
 
-        {/* Dynamic Navigation Content */}
-        <nav className="flex-1 px-4 py-8 space-y-12 overflow-y-auto custom-scrollbar-hide">
+        {/* Scrollable Nav Area */}
+        <nav className="flex-1 px-4 py-6 space-y-10 overflow-y-auto custom-scrollbar-hide">
           {menuGroups.map((group, gIdx) => (
-            <div key={gIdx} className="space-y-4">
+            <div key={gIdx} className="space-y-3">
               {(!isCollapsed || isOpen) && (
-                <h3 className="px-6 text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 mb-2 animate-in fade-in duration-1000">
+                <h3 className="px-5 text-[9px] font-black uppercase tracking-[0.35em] text-slate-400/80 mb-2 animate-in fade-in duration-1000">
                   {group.title}
                 </h3>
               )}
               
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {group.items.map((item) => {
                   const isActive = location.pathname === item.path;
                   return (
@@ -137,30 +136,34 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
                       key={item.path}
                       to={item.path}
                       onClick={() => setIsOpen(false)}
+                      style={isActive ? { backgroundColor: 'var(--theme-surface)' } : {}}
                       className={`
-                        group relative flex items-center gap-4 px-6 py-4.5 rounded-[1.5rem] transition-all duration-500 overflow-hidden
+                        group relative flex items-center gap-4 px-6 py-4 rounded-full transition-all duration-300 overflow-hidden
                         ${isActive 
-                          ? 'bg-theme text-white shadow-xl shadow-theme/20' 
+                          ? 'text-white shadow-xl' 
                           : 'text-slate-500 hover:bg-theme-light hover:text-theme'}
-                        ${isCollapsed && !isOpen ? 'justify-center px-0 h-16 w-16 mx-auto' : ''}
+                        ${isCollapsed && !isOpen ? 'md:justify-center px-0' : ''}
                       `}
                     >
-                      {/* Visual Active Stripe */}
-                      {isActive && !isCollapsed && (
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-white rounded-r-full shadow-lg" />
+                      {/* Active Indicator Bar - Refined to match screenshot stripe */}
+                      {isActive && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[5px] h-7 bg-theme rounded-r-full shadow-[0_0_10px_var(--theme-color)]" />
                       )}
 
-                      <item.icon size={22} className={`flex-shrink-0 transition-all duration-500 ${isActive ? 'scale-110' : 'group-hover:scale-110 group-hover:-translate-y-0.5'}`} />
+                      <item.icon size={22} className={`flex-shrink-0 transition-all duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110 group-hover:rotate-3'}`} />
                       
                       {(!isCollapsed || isOpen) ? (
                         <span className="text-[15px] font-bold tracking-tight whitespace-nowrap">{item.label}</span>
                       ) : (
-                        /* Tooltip for Collapsed State */
                         <div 
-                          className="absolute left-full ml-4 px-4 py-2 bg-slate-900 text-white text-[11px] font-black uppercase tracking-widest rounded-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-all z-[100] translate-x-[-10px] group-hover:translate-x-0 whitespace-nowrap shadow-2xl"
+                          style={{ backgroundColor: 'var(--theme-surface)' }}
+                          className="absolute left-full ml-6 px-4 py-2 text-white text-[11px] font-black uppercase tracking-widest rounded-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-all z-[100] translate-x-[-15px] group-hover:translate-x-0 whitespace-nowrap shadow-2xl"
                         >
                           {item.label}
-                          <div className="absolute top-1/2 -left-1.5 -translate-y-1/2 w-3 h-3 bg-slate-900 rotate-45" />
+                          <div 
+                            style={{ backgroundColor: 'var(--theme-surface)' }}
+                            className="absolute top-1/2 -left-1.5 -translate-y-1/2 w-3 h-3 rotate-45" 
+                          />
                         </div>
                       )}
                     </Link>
@@ -171,16 +174,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
           ))}
         </nav>
 
-        {/* User Workspace Section */}
-        <div className="p-6 mt-auto">
-          <div className="bg-slate-50/80 backdrop-blur-xl border border-slate-100 rounded-[2.5rem] p-3 space-y-2 transition-all duration-500">
+        {/* User Identity Footprint */}
+        <div className="p-4 mt-auto">
+          <div className="bg-slate-50/50 border border-slate-100 rounded-[2.5rem] p-2 space-y-1 transition-all duration-500 overflow-hidden">
             <Link 
               to={AppRoutes.SETTINGS}
-              className={`flex items-center gap-3 p-2 rounded-[1.5rem] transition-all hover:bg-white hover:shadow-xl group
+              className={`flex items-center gap-3 p-2 rounded-full transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 group
                 ${isCollapsed && !isOpen ? 'justify-center' : ''}
               `}
             >
-              <div className="w-12 h-12 rounded-[1.2rem] overflow-hidden bg-white border border-slate-200 flex-shrink-0 shadow-sm transition-transform group-hover:scale-105">
+              <div className="w-12 h-12 rounded-[1.25rem] overflow-hidden bg-white border border-slate-200 flex-shrink-0 shadow-sm transition-transform group-hover:scale-105">
                 {user?.photoURL ? (
                   <img src={user.photoURL} alt="User" className="w-full h-full object-cover" />
                 ) : (
@@ -189,37 +192,37 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
               </div>
               {(!isCollapsed || isOpen) && (
                 <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-black text-slate-800 truncate leading-none">{user?.displayName || 'Pet Parent'}</p>
-                  <p className="text-[9px] font-black text-theme uppercase tracking-widest mt-1.5 opacity-60">Gold Member</p>
+                  <p className="text-sm font-black text-slate-800 truncate leading-tight">{user?.displayName || 'Pet Parent'}</p>
+                  <p className="text-[10px] font-black text-theme uppercase tracking-widest mt-1 opacity-60">Verified Admin</p>
                 </div>
               )}
             </Link>
 
             <button
               onClick={handleLogout}
-              className={`w-full flex items-center gap-4 p-4 rounded-[1.5rem] transition-all text-slate-400 hover:text-rose-600 hover:bg-rose-50/50 group
+              className={`w-full flex items-center gap-3 p-3.5 rounded-full transition-all text-slate-400 hover:text-rose-600 hover:bg-rose-50 group
                 ${isCollapsed && !isOpen ? 'justify-center' : ''}
               `}
             >
-              <LogOut size={20} className="transition-transform group-hover:translate-x-1" />
-              {(!isCollapsed || isOpen) && <span className="text-[11px] font-black uppercase tracking-[0.2em]">End Session</span>}
+              <LogOut size={20} className="transition-transform group-hover:-translate-x-1" />
+              {(!isCollapsed || isOpen) && <span className="text-[11px] font-black uppercase tracking-[0.2em]">Exit Portal</span>}
             </button>
           </div>
         </div>
 
-        {/* Desktop Collapse Toggle Bar */}
+        {/* Floating Toggle Trigger (Desktop) */}
         <button 
           onClick={() => setIsCollapsed(!isCollapsed)}
           className={`
-            hidden md:flex absolute -right-4 top-1/2 -translate-y-1/2 w-8 h-12 bg-white border border-slate-200 rounded-2xl shadow-xl 
+            hidden md:flex absolute -right-4 top-32 w-8 h-12 bg-white border border-slate-200 rounded-2xl shadow-xl 
             items-center justify-center text-slate-400 hover:text-theme transition-all z-[80] 
-            hover:scale-110 active:scale-95 group/toggle
+            hover:scale-105 active:scale-95 group/toggle
           `}
         >
           {isCollapsed ? (
-            <ChevronRight size={20} className="group-hover/toggle:translate-x-0.5 transition-transform" />
+            <ChevronRight size={18} className="group-hover/toggle:translate-x-0.5 transition-transform" />
           ) : (
-            <ChevronLeft size={20} className="group-hover/toggle:-translate-x-0.5 transition-transform" />
+            <ChevronLeft size={18} className="group-hover/toggle:-translate-x-0.5 transition-transform" />
           )}
         </button>
       </aside>

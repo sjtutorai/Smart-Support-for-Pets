@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Menu, Bell, User as UserIcon, Trash2, CheckCircle2, AlertTriangle, Info, X, Search, Settings as SettingsIcon, Dog, Sparkles } from 'lucide-react';
 import Sidebar from './Sidebar';
@@ -66,7 +67,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   };
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-slate-50/40">
+    <div className="flex h-screen w-full overflow-hidden bg-slate-50/60">
       <Sidebar 
         isOpen={isSidebarOpen} 
         setIsOpen={setIsSidebarOpen} 
@@ -75,9 +76,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       />
 
       <div className={`
-        flex-1 flex flex-col overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]
+        flex-1 flex flex-col overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
       `}>
-        <header className="h-28 bg-white/60 backdrop-blur-2xl border-b border-slate-200/40 flex items-center justify-between px-8 md:px-14 z-40 transition-all duration-500">
+        <header className="h-28 bg-white/70 backdrop-blur-xl border-b border-slate-200/50 flex items-center justify-between px-8 md:px-14 z-40 transition-all duration-500">
           <div className="flex items-center gap-8">
             <button 
               onClick={() => setIsSidebarOpen(true)} 
@@ -87,7 +88,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             </button>
             
             <div className="hidden md:block">
-              <p className="text-[10px] font-black text-theme uppercase tracking-[0.6em] mb-1.5 opacity-40">Section / {getPageTitle()}</p>
+              <p className="text-[9px] font-black text-theme uppercase tracking-[0.5em] mb-1.5 opacity-60">System / {getPageTitle()}</p>
               <h2 className="text-3xl font-black text-slate-900 tracking-tighter leading-none">{getPageTitle()}</h2>
             </div>
 
@@ -98,21 +99,21 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             </Link>
           </div>
 
-          <div className="flex items-center gap-6 md:gap-12">
+          <div className="flex items-center gap-6 md:gap-10">
             <div className="hidden lg:flex items-center relative group">
-              <Search size={20} className="absolute left-6 text-slate-400 group-focus-within:text-theme transition-all" />
+              <Search size={20} className="absolute left-5 text-slate-400 group-focus-within:text-theme transition-all" />
               <input 
                 type="text" 
-                placeholder="Find in workspace..." 
-                className="bg-slate-100/60 border border-transparent rounded-[1.8rem] py-4 pl-16 pr-8 text-[15px] font-bold text-slate-700 focus:bg-white focus:ring-[12px] focus:ring-theme/5 focus:border-theme/20 outline-none transition-all w-80 lg:w-[480px] shadow-sm"
+                placeholder="Deep Search..." 
+                className="bg-slate-100/50 border border-transparent rounded-[1.5rem] py-3.5 pl-14 pr-6 text-[15px] font-bold text-slate-700 focus:bg-white focus:ring-[10px] focus:ring-theme/5 focus:border-theme/20 outline-none transition-all w-72 lg:w-96"
               />
             </div>
 
-            <div className="flex items-center gap-4 md:gap-8">
+            <div className="flex items-center gap-3 md:gap-6">
               <div className="relative" ref={notifRef}>
                 <button 
                   onClick={() => setIsNotifOpen(!isNotifOpen)} 
-                  className={`p-4 rounded-[1.4rem] transition-all relative ${isNotifOpen ? 'bg-slate-900 text-white shadow-2xl shadow-slate-900/40' : 'text-slate-500 hover:bg-theme-light hover:text-theme'}`}
+                  className={`p-4 rounded-[1.25rem] transition-all relative ${isNotifOpen ? 'bg-slate-900 text-white shadow-2xl shadow-slate-900/30' : 'text-slate-500 hover:bg-theme-light hover:text-theme'}`}
                 >
                   <Bell size={22} />
                   {unreadCount > 0 && (
@@ -123,73 +124,85 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 </button>
 
                 {isNotifOpen && (
-                  <div className="absolute right-0 mt-8 w-80 md:w-[28rem] bg-white/95 backdrop-blur-2xl rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.25)] border border-slate-100 overflow-hidden z-[100] animate-in zoom-in-95 fade-in slide-in-from-top-4 duration-500 origin-top-right">
+                  <div className="absolute right-0 mt-8 w-80 md:w-[28rem] bg-white rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.2)] border border-slate-100 overflow-hidden z-[100] animate-in zoom-in-95 fade-in slide-in-from-top-4 duration-500 origin-top-right">
                     <div className="p-8 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
                       <div>
-                        <h4 className="text-xl font-black text-slate-800 tracking-tight">Intelligence Feed</h4>
-                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-1.5">Updates Waiting: {unreadCount}</p>
+                        <h4 className="text-lg font-black text-slate-800 tracking-tight">Activity Log</h4>
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mt-1.5">Queued Messages: {unreadCount}</p>
                       </div>
                       <button 
                         onClick={clearAll} 
                         className="p-3 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-2xl transition-all"
                         title="Clear History"
                       >
-                        <Trash2 size={20} />
+                        <Trash2 size={18} />
                       </button>
                     </div>
-                    <div className="max-h-[520px] overflow-y-auto custom-scrollbar">
+                    <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
                       {notifications.length === 0 ? (
                         <div className="py-28 text-center space-y-6">
-                          <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-inner">
-                            <Bell className="text-slate-200" size={48} />
+                          <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner">
+                            <Bell className="text-slate-200" size={40} />
                           </div>
-                          <p className="text-slate-400 font-black text-sm italic opacity-60">Workspace is quiet.</p>
+                          <p className="text-slate-400 font-bold text-sm italic">System clear. No updates found.</p>
                         </div>
                       ) : (
                         notifications.map(notif => <NotificationItem key={notif.id} notif={notif} onMarkRead={markAsRead} />)
                       )}
                     </div>
+                    {notifications.length > 0 && (
+                      <div className="p-5 bg-slate-50 border-t border-slate-100 text-center">
+                        <button className="text-[11px] font-black uppercase tracking-[0.3em] text-theme hover:underline">Launch Full Log View</button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
-              <div className="h-10 w-px bg-slate-200 hidden md:block opacity-40"></div>
-              
               <Link 
                 to={AppRoutes.SETTINGS}
-                className="flex items-center gap-5 p-2 pr-8 bg-slate-100/50 hover:bg-white rounded-[2rem] transition-all border border-transparent hover:border-slate-200/50 hover:shadow-2xl hover:shadow-slate-200/40 group"
+                className="hidden md:flex p-4 text-slate-500 hover:bg-theme-light hover:text-theme rounded-[1.25rem] transition-all"
               >
-                <div className="h-12 w-12 rounded-[1.2rem] overflow-hidden bg-slate-200 border-2 border-white flex items-center justify-center shadow-lg transition-transform group-hover:scale-110">
-                  {user?.photoURL ? (
-                    <img src={user.photoURL} alt={user.displayName || 'User'} className="h-full w-full object-cover" />
-                  ) : (
-                    <UserIcon size={24} className="text-slate-400" />
-                  )}
-                </div>
-                <div className="hidden lg:block text-left">
-                  <p className="text-[15px] font-black text-slate-800 leading-none truncate max-w-[140px]">{user?.displayName || 'Pet Parent'}</p>
-                  <p className="text-[9px] font-black text-theme uppercase tracking-[0.5em] mt-1.5">Workspace Admin</p>
-                </div>
+                <SettingsIcon size={22} />
               </Link>
             </div>
+            
+            <div className="h-12 w-px bg-slate-200 hidden md:block opacity-50"></div>
+            
+            <Link 
+              to={AppRoutes.SETTINGS}
+              className="flex items-center gap-4 p-2 pr-6 bg-slate-100/40 hover:bg-white rounded-[1.5rem] transition-all border border-transparent hover:border-slate-200/50 hover:shadow-2xl hover:shadow-slate-200/40 group"
+            >
+              <div className="h-12 w-12 rounded-[1rem] overflow-hidden bg-slate-200 border-2 border-white flex items-center justify-center shadow-lg transition-transform group-hover:scale-105">
+                {user?.photoURL ? (
+                  <img src={user.photoURL} alt={user.displayName || 'User'} className="h-full w-full object-cover" />
+                ) : (
+                  <UserIcon size={22} className="text-slate-400" />
+                )}
+              </div>
+              <div className="hidden lg:block text-left">
+                <p className="text-[15px] font-black text-slate-800 leading-none truncate max-w-[120px]">{user?.displayName || 'Pet Parent'}</p>
+                <p className="text-[9px] font-black text-theme uppercase tracking-[0.4em] mt-1.5">Pro Identity</p>
+              </div>
+            </Link>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8 md:p-14 lg:p-24 scroll-smooth">
+        <main className="flex-1 overflow-y-auto p-8 md:p-14 lg:p-20 scroll-smooth bg-transparent">
           <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-1000">
             {children}
           </div>
           
-          <footer className="mt-40 py-20 border-t border-slate-200/30 text-center">
-             <div className="flex items-center justify-center gap-4 text-slate-300 font-black text-[12px] uppercase tracking-[0.6em]">
-               <Dog size={16} /> SS Paw Pal <Sparkles size={16} />
+          <footer className="mt-32 py-16 border-t border-slate-200/40 text-center">
+             <div className="flex items-center justify-center gap-3 text-slate-300 font-black text-[11px] uppercase tracking-[0.5em]">
+               <Dog size={14} /> SS Paw Pal <Sparkles size={14} />
              </div>
-             <p className="text-slate-400 font-black text-[10px] mt-8 opacity-30 uppercase tracking-[0.3em] flex items-center justify-center gap-6">
-                <Link to={AppRoutes.TERMS} className="hover:text-theme transition-colors">Terms</Link>
-                <span className="w-1.5 h-1.5 bg-slate-300 rounded-full"></span>
-                <Link to={AppRoutes.PRIVACY} className="hover:text-theme transition-colors">Privacy</Link>
-                <span className="w-1.5 h-1.5 bg-slate-300 rounded-full"></span>
-                <span>Version 1.2.0</span>
+             <p className="text-slate-400 font-black text-[10px] mt-6 opacity-40 uppercase tracking-[0.2em] flex items-center justify-center gap-4">
+                <span>Terms of Service</span>
+                <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                <span>Privacy Standards</span>
+                <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                <span>Global v1.0</span>
              </p>
           </footer>
         </main>
