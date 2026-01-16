@@ -14,7 +14,7 @@ import {
   Heart, Fish, Bug, Thermometer, Droplets, Calendar, LineChart, Syringe, TrendingUp,
   Sparkles, Info, Quote, Upload, Loader2, Wand2, QrCode, Scan, X, ExternalLink, Save,
   Key, ShieldCheck, Globe, Brain, RefreshCcw, Image as ImageIcon,
-  Send, UserPlus, Info as InfoIcon, Hash, ArrowRight
+  Send, UserPlus, Info as InfoIcon, Hash, ArrowRight, Activity, Trash
 } from 'lucide-react';
 
 // Lazy load pages for performance
@@ -53,7 +53,6 @@ const PageLoader = () => (
   </div>
 );
 
-// Interface definition to fix TypeScript errors during build
 declare global {
   interface AIStudio {
     hasSelectedApiKey: () => Promise<boolean>;
@@ -67,6 +66,7 @@ declare global {
 export const BREED_DATA: Record<string, string[]> = {
   Dog: ['Labrador Retriever', 'German Shepherd', 'Golden Retriever', 'French Bulldog', 'Poodle', 'Beagle', 'Mixed Breed'],
   Cat: ['Persian', 'Maine Coon', 'Siamese', 'Ragdoll', 'Bengal', 'Mixed Breed'],
+  Bird: ['African Grey Parrot', 'Cockatiel', 'Budgerigar', 'Macaw', 'Conure', 'Lovebird', 'Cockatoo'],
   Rabbit: ['Holland Lop', 'Mini Rex', 'Dutch Rabbit', 'Lionhead'],
   Hamster: ['Syrian Hamster', 'Dwarf Hamster', 'Roborovski Hamster'],
   'Guinea Pig': ['Abyssinian', 'American', 'Peruvian', 'Teddy'],
@@ -75,7 +75,7 @@ export const BREED_DATA: Record<string, string[]> = {
 
 export const PET_CATEGORIES = [
   { id: 'mammal', name: 'Mammals', icon: Dog, species: ['Dog', 'Cat', 'Rabbit', 'Hamster', 'Guinea Pig'] },
-  { id: 'bird', name: 'Birds', icon: Bird, species: ['Parrot', 'Parakeet', 'Cockatiel', 'Lovebird'] },
+  { id: 'bird', name: 'Birds', icon: Bird, species: ['African Grey Parrot', 'Cockatiel', 'Budgerigar', 'Macaw', 'Conure'] },
   { id: 'fish', name: 'Fish', icon: Fish, species: ['Goldfish', 'Betta Fish', 'Guppy'] },
   { id: 'reptile', name: 'Reptiles', icon: Thermometer, species: ['Turtle', 'Tortoise', 'Lizard'] },
 ];
@@ -98,12 +98,14 @@ const PetProfilePage: React.FC = () => {
   const [pets, setPets] = useState<PetProfile[]>([]);
   const [selectedPet, setSelectedPet] = useState<PetProfile | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [isAddingRecord, setIsAddingRecord] = useState<'vaccine' | 'weight' | null>(null);
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [showKeyPrompt, setShowKeyPrompt] = useState(false);
   const [step, setStep] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const [newPet, setNewPet] = useState<Partial<PetProfile>>({ name: '', breed: '', birthday: '', bio: '', species: 'Dog', weightHistory: [], vaccinations: [] });
+  const [newRecord, setNewRecord] = useState({ name: '', date: new Date().toISOString().split('T')[0], weight: '', nextDueDate: '' });
   const [saveSuccess, setSaveSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qrFileInputRef = useRef<HTMLInputElement>(null);
@@ -151,39 +153,47 @@ const PetProfilePage: React.FC = () => {
     setTimeout(() => { setIsAdding(false); setSaveSuccess(false); setStep(1); }, 1500);
   };
 
+  const handleAddRecord = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPet) return;
+
+    let updatedPet = { ...selectedPet };
+    if (isAddingRecord === 'vaccine') {
+      const v: VaccinationRecord = { name: newRecord.name, date: newRecord.date, nextDueDate: newRecord.nextDueDate };
+      updatedPet.vaccinations = [...(updatedPet.vaccinations || []), v];
+    } else {
+      const w: WeightRecord = { date: newRecord.date, weight: parseFloat(newRecord.weight) };
+      updatedPet.weightHistory = [...(updatedPet.weightHistory || []), w];
+    }
+
+    const updatedPets = pets.map(p => p.id === selectedPet.id ? updatedPet : p);
+    await savePetsToStorage(updatedPets);
+    setSelectedPet(updatedPet);
+    setIsAddingRecord(null);
+    setNewRecord({ name: '', date: new Date().toISOString().split('T')[0], weight: '', nextDueDate: '' });
+    addNotification('Record Added', 'Health logs updated successfully.', 'success');
+  };
+
   const generateAIAvatar = async (base64Source?: string) => {
     if (!selectedPet) return;
     
-    // Switch to gemini-2.5-flash-image to avoid the mandatory 'Connect Paid Key' dialog required for Gemini 3 Pro.
     setIsGeneratingAvatar(true);
     setShowKeyPrompt(false);
     
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const petDetails = `${selectedPet.breed || ''} ${selectedPet.species}`.trim();
-      const prompt = `A cinematic, ultra-high-quality professional studio avatar portrait of a ${petDetails} named ${selectedPet.name}. Detailed textures (fur/feathers), vibrant lighting, professional bokeh background.`;
+      const prompt = `A cinematic, ultra-high-quality professional studio avatar portrait of a ${petDetails} named ${selectedPet.name}. Detailed feathers, vibrant colors, studio lighting, blurred background, 4K detail.`;
       
-      const contents: any = { 
-        parts: [{ text: prompt }] 
-      };
-
+      const parts: any[] = [{ text: prompt }];
       if (base64Source) {
-        contents.parts.push({ 
-          inlineData: { 
-            data: base64Source.split(',')[1], 
-            mimeType: 'image/png' 
-          } 
-        });
+        parts.push({ inlineData: { data: base64Source.split(',')[1], mimeType: 'image/png' } });
       }
 
       const response = await ai.models.generateContent({ 
         model: 'gemini-2.5-flash-image', 
-        contents, 
-        config: { 
-          imageConfig: { 
-            aspectRatio: "1:1" 
-          } 
-        } 
+        contents: { parts }, 
+        config: { imageConfig: { aspectRatio: "1:1" } } 
       });
 
       if (response.candidates?.[0]?.content?.parts) {
@@ -194,19 +204,14 @@ const PetProfilePage: React.FC = () => {
             const updatedPets = pets.map(p => p.id === selectedPet.id ? updatedPet : p);
             await savePetsToStorage(updatedPets);
             setSelectedPet(updatedPet);
-            addNotification('Studio Success', 'New AI avatar applied!', 'success');
+            addNotification('AI Magic', 'Custom avatar generated!', 'success');
             break;
           }
         }
       }
     } catch (err: any) {
-      console.error("Avatar error:", err);
-      // Only show key selection prompt if the specific error occurs
-      if (err.message?.includes("Requested entity was not found") && window.aistudio) {
-        setShowKeyPrompt(true);
-      } else {
-        addNotification('Studio Busy', 'AI engine is processing requests. Try again shortly.', 'info');
-      }
+      console.error("AI Generation Error:", err);
+      addNotification('Studio Error', 'Check connection and try again.', 'error');
     } finally { 
       setIsGeneratingAvatar(false); 
     }
@@ -247,7 +252,7 @@ const PetProfilePage: React.FC = () => {
           try {
             const petData = await getPetById(petId);
             if (petData) {
-              addNotification('ID Identified', `Successfully retrieved profile for ${petData.name}`, 'success');
+              addNotification('ID Identified', `Profile retrieved for ${petData.name}`, 'success');
               const userPet = pets.find(p => p.id === petData.id);
               if (userPet) {
                 setSelectedPet(userPet);
@@ -257,7 +262,7 @@ const PetProfilePage: React.FC = () => {
               }
             }
           } catch (err) {
-            addNotification('Retrieval Failed', 'Could not verify the companion ID.', 'error');
+            addNotification('Retrieval Failed', 'Could not verify ID.', 'error');
           }
         }
         setIsScanning(false);
@@ -272,15 +277,11 @@ const PetProfilePage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Companion Registry</h2>
-          <p className="text-slate-500 font-medium text-sm">Manage profiles and wellness records for your pets.</p>
+          <p className="text-slate-500 font-medium text-sm">Manage profiles and wellness records.</p>
         </div>
         <div className="flex items-center gap-3">
           <input type="file" ref={qrFileInputRef} className="hidden" accept="image/*" onChange={handleFileScan} />
-          <button 
-            onClick={handleScanClick} 
-            disabled={isScanning}
-            className="flex items-center gap-2 px-6 py-3.5 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm active:scale-95 disabled:opacity-50"
-          >
+          <button onClick={handleScanClick} disabled={isScanning} className="flex items-center gap-2 px-6 py-3.5 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm active:scale-95 disabled:opacity-50">
             {isScanning ? <Loader2 size={18} className="animate-spin" /> : <Scan size={18} />} 
             {/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? 'Scan ID' : 'Upload ID'}
           </button>
@@ -294,7 +295,7 @@ const PetProfilePage: React.FC = () => {
         {pets.map(p => (
           <button 
             key={p.id} 
-            onClick={() => { setSelectedPet(p); setIsAdding(false); setShowKeyPrompt(false); }} 
+            onClick={() => { setSelectedPet(p); setIsAdding(false); setShowKeyPrompt(false); setIsAddingRecord(null); }} 
             className={`flex items-center gap-3 px-5 py-3 rounded-2xl border-2 transition-all shrink-0 ${selectedPet?.id === p.id && !isAdding ? 'bg-theme-light border-theme shadow-sm scale-105' : 'bg-white border-transparent hover:bg-slate-50'}`}
           >
             <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">
@@ -354,29 +355,10 @@ const PetProfilePage: React.FC = () => {
                     <span className="text-[10px] font-black uppercase tracking-widest text-theme">Designing...</span>
                   </div>
                 )}
-
-                {showKeyPrompt && (
-                  <div className="absolute inset-0 bg-theme/90 text-white flex flex-col items-center justify-center p-6 text-center animate-in zoom-in-95 duration-300 z-10 backdrop-blur-sm">
-                    <Key size={32} className="mb-3 text-white" />
-                    <h5 className="text-[10px] font-black uppercase tracking-[0.2em] mb-2">Connect Paid Key</h5>
-                    <p className="text-[9px] font-medium leading-relaxed mb-5 opacity-90">Gemini Pro Image features require an active API key selection in your dashboard.</p>
-                    <button 
-                      onClick={() => { window.aistudio?.openSelectKey(); setShowKeyPrompt(false); }}
-                      className="w-full bg-white text-theme py-3 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg hover:bg-slate-50 transition-all active:scale-95"
-                    >
-                      Select Key
-                    </button>
-                    <button onClick={() => setShowKeyPrompt(false)} className="mt-4 text-[8px] font-bold opacity-50 hover:opacity-100 transition-opacity uppercase tracking-widest">Later</button>
-                  </div>
-                )}
               </div>
 
               <div className="flex gap-2 justify-center">
-                <button 
-                  onClick={() => fileInputRef.current?.click()} 
-                  className="p-3.5 bg-white border border-slate-100 rounded-xl hover:bg-slate-50 shadow-sm text-slate-500 transition-all hover:text-theme"
-                  title="Upload Reference Photo"
-                >
+                <button onClick={() => fileInputRef.current?.click()} className="p-3.5 bg-white border border-slate-100 rounded-xl hover:bg-slate-50 shadow-sm text-slate-500 transition-all hover:text-theme" title="Upload Reference">
                   <Camera size={20} />
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
                     const file = e.target.files?.[0];
@@ -387,19 +369,14 @@ const PetProfilePage: React.FC = () => {
                     }
                   }} />
                 </button>
-                <button 
-                  onClick={() => generateAIAvatar()} 
-                  disabled={isGeneratingAvatar} 
-                  className={`p-3.5 rounded-xl shadow-lg transition-all ${showKeyPrompt ? 'bg-rose-500 text-white' : 'bg-slate-900 text-theme hover:bg-black'}`}
-                  title="Generate AI Avatar"
-                >
+                <button onClick={() => generateAIAvatar()} disabled={isGeneratingAvatar} className="p-3.5 rounded-xl shadow-lg transition-all bg-slate-900 text-theme hover:bg-black" title="Generate AI Avatar">
                   <Wand2 size={20} />
                 </button>
               </div>
 
               <div className="space-y-1 pb-4">
                 <h3 className="text-4xl font-black text-slate-900 tracking-tighter">{selectedPet.name}</h3>
-                <p className="text-[10px] font-black text-theme uppercase tracking-[0.2em]">{selectedPet.breed || 'Wild'} · {selectedPet.species}</p>
+                <p className="text-[10px] font-black text-theme uppercase tracking-[0.2em]">{selectedPet.breed} · {selectedPet.species}</p>
                 <div className="inline-block mt-4 px-3 py-1 bg-slate-50 rounded-full border border-slate-100 text-[9px] font-black text-slate-400 uppercase tracking-widest">
                   ID: {selectedPet.id}
                 </div>
@@ -407,21 +384,96 @@ const PetProfilePage: React.FC = () => {
             </div>
           </div>
 
-          <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 border border-slate-50 shadow-sm min-h-[400px]">
-             <div className="flex items-center gap-4 mb-8">
-               <div className="p-3 bg-slate-900 text-theme rounded-xl shadow-md"><Brain size={24} /></div>
-               <div>
-                 <h4 className="font-black text-xl text-slate-900 leading-none">Health Intelligence</h4>
-                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Medical records & AI Insights</p>
+          <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 border border-slate-50 shadow-sm min-h-[500px] flex flex-col">
+             <div className="flex items-center justify-between mb-8">
+               <div className="flex items-center gap-4">
+                 <div className="p-3 bg-slate-900 text-theme rounded-xl shadow-md"><Brain size={24} /></div>
+                 <div>
+                   <h4 className="font-black text-xl text-slate-900 leading-none">Health Intelligence</h4>
+                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Medical records & AI Insights</p>
+                 </div>
+               </div>
+               <div className="flex gap-2">
+                 <button onClick={() => setIsAddingRecord('weight')} className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">+ Log Weight</button>
+                 <button onClick={() => setIsAddingRecord('vaccine')} className="px-4 py-2 bg-theme text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-theme/10 hover:bg-theme-hover">+ Add Vaccine</button>
                </div>
              </div>
-             <div className="flex flex-col items-center justify-center py-24 text-center">
-                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-6 text-slate-200">
-                  <Stethoscope size={32} />
-                </div>
-                <p className="text-slate-300 font-black uppercase tracking-[0.3em] text-[10px]">No medical logs recorded for {selectedPet.name}</p>
-                <button className="mt-6 text-theme font-black text-[10px] uppercase tracking-widest hover:underline">+ Add First Record</button>
-             </div>
+
+             {isAddingRecord ? (
+               <form onSubmit={handleAddRecord} className="flex-1 bg-slate-50/50 rounded-3xl p-8 border border-slate-100 space-y-6 animate-in slide-in-from-top-4">
+                 <div className="flex items-center justify-between mb-2">
+                   <h5 className="font-black text-slate-800 text-sm uppercase tracking-widest">Add {isAddingRecord === 'vaccine' ? 'Vaccination' : 'Weight Entry'}</h5>
+                   <button type="button" onClick={() => setIsAddingRecord(null)}><X size={16} className="text-slate-400" /></button>
+                 </div>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <div className="space-y-1.5">
+                     <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-1">Date</label>
+                     <input type="date" required value={newRecord.date} onChange={e => setNewRecord({...newRecord, date: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
+                   </div>
+                   {isAddingRecord === 'vaccine' ? (
+                     <>
+                       <div className="space-y-1.5">
+                         <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-1">Vaccine Name</label>
+                         <input required placeholder="e.g. Parvovirus" value={newRecord.name} onChange={e => setNewRecord({...newRecord, name: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
+                       </div>
+                       <div className="space-y-1.5">
+                         <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-1">Next Due Date</label>
+                         <input type="date" required value={newRecord.nextDueDate} onChange={e => setNewRecord({...newRecord, nextDueDate: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
+                       </div>
+                     </>
+                   ) : (
+                     <div className="space-y-1.5">
+                       <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-1">Weight (KG)</label>
+                       <input type="number" step="0.1" required placeholder="0.0" value={newRecord.weight} onChange={e => setNewRecord({...newRecord, weight: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
+                     </div>
+                   )}
+                 </div>
+                 <button type="submit" className="w-full py-4 bg-slate-900 text-theme rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all">Save Health Record</button>
+               </form>
+             ) : (selectedPet.vaccinations?.length || 0) + (selectedPet.weightHistory?.length || 0) > 0 ? (
+               <div className="flex-1 space-y-6">
+                 {selectedPet.vaccinations && selectedPet.vaccinations.length > 0 && (
+                   <div className="space-y-3">
+                     <h5 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Syringe size={14}/> Vaccinations</h5>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                       {selectedPet.vaccinations.map((v, i) => (
+                         <div key={i} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                            <div>
+                              <p className="font-black text-slate-800 text-sm">{v.name}</p>
+                              <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Admin: {v.date}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[8px] font-black text-theme uppercase tracking-widest">Next Due</p>
+                              <p className="text-[10px] font-black text-slate-700 mt-0.5">{v.nextDueDate}</p>
+                            </div>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                 )}
+                 {selectedPet.weightHistory && selectedPet.weightHistory.length > 0 && (
+                   <div className="space-y-3">
+                     <h5 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><TrendingUp size={14}/> Weight Logs</h5>
+                     <div className="flex gap-3 overflow-x-auto pb-2 scroll-hide">
+                       {selectedPet.weightHistory.map((w, i) => (
+                         <div key={i} className="p-4 bg-white rounded-2xl border border-slate-100 flex flex-col items-center shrink-0 min-w-[100px] shadow-sm">
+                            <p className="text-xl font-black text-slate-900">{w.weight} <span className="text-[10px] text-slate-400">kg</span></p>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">{w.date}</p>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                 )}
+               </div>
+             ) : (
+               <div className="flex flex-col items-center justify-center py-24 text-center">
+                  <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-6 text-slate-200">
+                    <Stethoscope size={32} />
+                  </div>
+                  <p className="text-slate-300 font-black uppercase tracking-[0.3em] text-[10px]">No medical logs recorded for {selectedPet.name}</p>
+                  <button onClick={() => setIsAddingRecord('vaccine')} className="mt-6 text-theme font-black text-[10px] uppercase tracking-widest hover:underline">+ Add First Record</button>
+               </div>
+             )}
           </div>
         </div>
       ) : (
@@ -431,12 +483,9 @@ const PetProfilePage: React.FC = () => {
           </div>
           <h3 className="text-3xl font-black text-slate-900 mb-4 tracking-tighter">Companion Network Offline</h3>
           <p className="text-slate-500 font-medium mb-10 max-w-sm mx-auto text-sm leading-relaxed">
-            Register your first companion to unlock AI health tracking and community discovery.
+            Register your first companion to unlock AI health tracking.
           </p>
-          <button 
-            onClick={() => { setStep(1); setIsAdding(true); }} 
-            className="bg-slate-900 text-white px-10 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-2xl shadow-slate-200 active:scale-95"
-          >
+          <button onClick={() => { setStep(1); setIsAdding(true); }} className="bg-slate-900 text-white px-10 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-2xl shadow-slate-200 active:scale-95">
             Start Registration
           </button>
         </div>
