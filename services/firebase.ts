@@ -28,6 +28,7 @@ import {
   onSnapshot,
   deleteDoc
 } from "firebase/firestore";
+import { User, PetProfile } from '../types';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCVUMhFhDzfbvF-iXthH6StOlI6mJreTmA",
@@ -64,13 +65,15 @@ export const isUsernameTaken = async (username: string, excludeUid: string) => {
  */
 export const syncUserToDb = async (user: FirebaseUser, extraData: any = {}) => {
   const userRef = doc(db, "users", user.uid);
+  const displayName = extraData.displayName || user.displayName || 'Pet Parent';
   const data = {
     uid: user.uid,
     email: user.email,
-    displayName: extraData.displayName || user.displayName || 'Pet Parent',
+    displayName: displayName,
     photoURL: user.photoURL || null,
     username: extraData.username || user.displayName?.toLowerCase().replace(/\s/g, '') || user.uid.slice(0, 8),
     lastLogin: new Date().toISOString(),
+    lowercaseDisplayName: displayName.toLowerCase(),
     ...extraData
   };
   
@@ -90,6 +93,7 @@ export const syncPetToDb = async (pet: any) => {
   const petRef = doc(db, "pets", pet.id);
   await setDoc(petRef, {
     ...pet,
+    lowercaseName: pet.name?.toLowerCase() || '',
     updatedAt: serverTimestamp()
   }, { merge: true });
 };
@@ -98,7 +102,68 @@ export const getPetById = async (id: string) => {
   if (!id) return null;
   const petRef = doc(db, "pets", id);
   const snap = await getDoc(petRef);
-  return snap.exists() ? snap.data() : null;
+  return snap.exists() ? { id: snap.id, ...snap.data() } as PetProfile : null;
+};
+
+export const getUserById = async (id: string) => {
+  if (!id) return null;
+  const userRef = doc(db, "users", id);
+  const snap = await getDoc(userRef);
+  return snap.exists() ? { id: snap.id, ...snap.data() } as User : null;
+};
+
+export const getPetsByOwnerId = async (ownerId: string): Promise<PetProfile[]> => {
+    if (!ownerId) return [];
+    const q = query(collection(db, "pets"), where("ownerId", "==", ownerId), limit(10));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as PetProfile);
+};
+
+export const searchPetsAndOwners = async (searchText: string): Promise<{ pet: PetProfile, owner: User | null }[]> => {
+  if (!searchText.trim()) return [];
+  const lowerCaseSearch = searchText.toLowerCase();
+
+  // Query for pets by name
+  const petsQuery = query(
+    collection(db, "pets"),
+    where("lowercaseName", ">=", lowerCaseSearch),
+    where("lowercaseName", "<=", lowerCaseSearch + '\uf8ff'),
+    limit(10)
+  );
+
+  // Query for owners by name
+  const ownersQuery = query(
+    collection(db, "users"),
+    where("lowercaseDisplayName", ">=", lowerCaseSearch),
+    where("lowercaseDisplayName", "<=", lowerCaseSearch + '\uf8ff'),
+    limit(10)
+  );
+
+  const [petsSnapshot, ownersSnapshot] = await Promise.all([getDocs(petsQuery), getDocs(ownersQuery)]);
+  
+  const resultsMap = new Map<string, { pet: PetProfile, owner: User | null }>();
+
+  // Process pet search results
+  const petResults = petsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as PetProfile);
+  for (const pet of petResults) {
+      if (!resultsMap.has(pet.id)) {
+        const owner = pet.ownerId ? await getUserById(pet.ownerId) : null;
+        resultsMap.set(pet.id, { pet, owner });
+      }
+  }
+
+  // Process owner search results
+  const ownerResults = ownersSnapshot.docs.map(doc => ({ ...doc.data() }) as User);
+  for (const owner of ownerResults) {
+      const petsOfOwner = await getPetsByOwnerId(owner.uid);
+      for (const pet of petsOfOwner) {
+          if (!resultsMap.has(pet.id)) {
+              resultsMap.set(pet.id, { pet, owner });
+          }
+      }
+  }
+  
+  return Array.from(resultsMap.values());
 };
 
 export const loginWithGoogle = async () => {
@@ -192,7 +257,10 @@ export const updateUserProfile = async (uid: string, data: { displayName?: strin
   
   const userRef = doc(db, "users", uid);
   const updateData: any = {};
-  if (displayName !== undefined) updateData.displayName = displayName;
+  if (displayName !== undefined) {
+    updateData.displayName = displayName;
+    updateData.lowercaseDisplayName = displayName.toLowerCase();
+  }
   if (username !== undefined) updateData.username = username.toLowerCase().trim();
   if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
 

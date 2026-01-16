@@ -27,6 +27,7 @@ export interface User {
   photoURL: string | null;
   phoneNumber?: string;
   username?: string;
+  lowercaseDisplayName?: string;
 }
 
 export interface WeightRecord {
@@ -57,6 +58,7 @@ export interface PetProfile {
   vaccinations: VaccinationRecord[];
   isPublic: boolean;
   ownerName: string;
+  lowercaseName?: string;
 }
 
 export interface ChatMessage {

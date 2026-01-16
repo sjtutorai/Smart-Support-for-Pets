@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useParams } from "react-router-dom";
 import Layout from './components/Layout';
@@ -29,6 +28,7 @@ const Terms = lazy(() => import('./pages/Terms'));
 const Privacy = lazy(() => import('./pages/Privacy'));
 const Chat = lazy(() => import('./pages/Chat'));
 const FindFriends = lazy(() => import('./pages/FindFriends'));
+const PublicPetProfile = lazy(() => import('./pages/PublicPetProfile'));
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
@@ -117,7 +117,18 @@ const PetProfilePage: React.FC = () => {
     if (!user) return;
     const id = `SSP-${Date.now()}`;
     const { years, months } = calculateAge(newPet.birthday || '');
-    const completePet: PetProfile = { ...newPet as PetProfile, id, ownerId: user.uid, ownerName: user.displayName || 'Parent', ageYears: String(years), ageMonths: String(months), weightHistory: [], vaccinations: [], isPublic: true };
+    const completePet: PetProfile = { 
+        ...newPet as PetProfile, 
+        id, 
+        ownerId: user.uid, 
+        ownerName: user.displayName || 'Parent', 
+        ageYears: String(years), 
+        ageMonths: String(months), 
+        weightHistory: [], 
+        vaccinations: [], 
+        isPublic: true,
+        lowercaseName: newPet.name?.toLowerCase() || ''
+    };
     const updatedPets = [...pets, completePet];
     await savePetsToStorage(updatedPets);
     setSelectedPet(completePet);
@@ -402,6 +413,7 @@ const AppContent: React.FC = () => {
         <Route path={AppRoutes.CREATE_POST} element={<ProtectedRoute><Community /></ProtectedRoute>} />
         <Route path={AppRoutes.CHAT} element={<ProtectedRoute><Chat /></ProtectedRoute>} />
         <Route path={AppRoutes.FIND_FRIENDS} element={<ProtectedRoute><FindFriends /></ProtectedRoute>} />
+        <Route path="/pet/:petId" element={<ProtectedRoute><PublicPetProfile /></ProtectedRoute>} />
         <Route path={AppRoutes.TERMS} element={<ProtectedRoute><Terms /></ProtectedRoute>} />
         <Route path={AppRoutes.PRIVACY} element={<ProtectedRoute><Privacy /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />

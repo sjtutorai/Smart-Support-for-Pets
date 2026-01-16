@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
@@ -13,7 +12,7 @@ import {
   Sparkles,
   Send,
   User as UserIcon,
-  UserSearch,
+  Search,
   LayoutDashboard,
 } from 'lucide-react';
 import { AppRoutes } from '../types';
@@ -45,7 +44,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
       items: [
         { label: 'Community', path: AppRoutes.CREATE_POST, icon: PlusSquare },
         { label: 'Inbox', path: AppRoutes.CHAT, icon: Send },
-        { label: 'Find Friends', path: AppRoutes.FIND_FRIENDS, icon: UserSearch },
+        { label: 'Search', path: AppRoutes.FIND_FRIENDS, icon: Search },
       ]
     },
     {
