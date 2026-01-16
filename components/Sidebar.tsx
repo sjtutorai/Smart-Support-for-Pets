@@ -43,7 +43,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
     {
       title: "Social",
       items: [
-        { label: 'Community', path: AppRoutes.COMMUNITY, icon: PlusSquare },
+        { label: 'Community', path: AppRoutes.CREATE_POST, icon: PlusSquare },
         { label: 'Inbox', path: AppRoutes.CHAT, icon: Send },
         { label: 'Find Friends', path: AppRoutes.FIND_FRIENDS, icon: UserSearch },
       ]
@@ -150,28 +150,28 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
 
         {/* User / Logout Section */}
         <div className="p-4 border-t border-slate-50">
-          <div className="space-y-1">
-            <Link to={AppRoutes.SETTINGS} className="group w-full flex items-center gap-3 p-3 rounded-2xl transition-all hover:bg-slate-50">
-              <div className="w-10 h-10 rounded-xl overflow-hidden bg-white border border-slate-200 shrink-0">
-                {user?.photoURL ? (
-                  <img src={user.photoURL} className="w-full h-full object-cover" />
-                ) : (
-                  <UserIcon size={20} className="m-2.5 text-slate-300" />
-                )}
-              </div>
-              {!isCollapsed && (
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-slate-800 truncate">{user?.displayName || 'Settings'}</p>
-                  <p className="text-xs text-slate-500 font-medium truncate -mt-0.5">View Profile</p>
+          <div className="bg-slate-50 rounded-2xl p-2 space-y-1">
+            {!isCollapsed && (
+              <div className="flex items-center gap-3 p-2">
+                <div className="w-8 h-8 rounded-lg overflow-hidden bg-white border border-slate-200">
+                  {user?.photoURL ? (
+                    <img src={user.photoURL} className="w-full h-full object-cover" />
+                  ) : (
+                    <UserIcon size={16} className="m-2 text-slate-300" />
+                  )}
                 </div>
-              )}
-            </Link>
+                <div className="min-w-0">
+                  <p className="text-xs font-black text-slate-900 truncate">Account</p>
+                  <p className="text-[10px] text-slate-400 font-bold truncate">Manage</p>
+                </div>
+              </div>
+            )}
             <button
               onClick={handleLogout}
               className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-slate-500 hover:text-rose-500 hover:bg-rose-50 ${isCollapsed ? 'justify-center' : ''}`}
             >
               <LogOut size={18} />
-              {!isCollapsed && <span className="text-sm font-bold">Logout</span>}
+              {!isCollapsed && <span className="text-xs font-black uppercase tracking-widest">Logout</span>}
             </button>
           </div>
         </div>

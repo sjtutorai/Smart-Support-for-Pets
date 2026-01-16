@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from "react-router-dom";
+import { HashRouter as Router, Routes, Route, Navigate, useParams } from "react-router-dom";
 import Layout from './components/Layout';
 import { AppRoutes, PetProfile, WeightRecord, VaccinationRecord } from './types';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -399,7 +399,7 @@ const AppContent: React.FC = () => {
         <Route path={AppRoutes.HEALTH_CHECKUP} element={<ProtectedRoute><AIAssistant /></ProtectedRoute>} />
         <Route path={AppRoutes.SETTINGS} element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path={AppRoutes.PET_PROFILE} element={<ProtectedRoute><PetProfilePage /></ProtectedRoute>} />
-        <Route path={AppRoutes.COMMUNITY} element={<ProtectedRoute><Community /></ProtectedRoute>} />
+        <Route path={AppRoutes.CREATE_POST} element={<ProtectedRoute><Community /></ProtectedRoute>} />
         <Route path={AppRoutes.CHAT} element={<ProtectedRoute><Chat /></ProtectedRoute>} />
         <Route path={AppRoutes.FIND_FRIENDS} element={<ProtectedRoute><FindFriends /></ProtectedRoute>} />
         <Route path={AppRoutes.TERMS} element={<ProtectedRoute><Terms /></ProtectedRoute>} />

@@ -57,7 +57,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     if (path === AppRoutes.HOME) return "Dashboard";
     if (path === AppRoutes.AI_ASSISTANT) return "AI Consultant";
     if (path === AppRoutes.PET_CARE) return "Wellness";
-    if (path === AppRoutes.COMMUNITY) return "Community";
+    if (path === AppRoutes.CREATE_POST) return "Community";
     if (path === AppRoutes.CHAT) return "Messages";
     if (path === AppRoutes.PET_PROFILE) return "Pet Profiles";
     if (path === AppRoutes.SETTINGS) return "Settings";

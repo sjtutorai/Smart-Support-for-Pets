@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
-import { Loader2, AlertCircle, Eye, EyeOff, Apple } from 'lucide-react';
-import { loginWithGoogle, loginWithApple, loginWithIdentifier, signUpWithEmail } from '../services/firebase';
+import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { loginWithGoogle, loginWithIdentifier, signUpWithEmail } from '../services/firebase';
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from '../context/AuthContext';
 import { AppRoutes } from '../types';
@@ -53,17 +52,6 @@ const Login: React.FC = () => {
     setError('');
     try {
       await loginWithGoogle();
-    } catch (err: any) {
-      setError(formatFirebaseError(err));
-      setIsLoading(false);
-    }
-  };
-
-  const handleAppleLogin = async () => {
-    setIsLoading(true);
-    setError('');
-    try {
-      await loginWithApple();
     } catch (err: any) {
       setError(formatFirebaseError(err));
       setIsLoading(false);
@@ -231,7 +219,7 @@ const Login: React.FC = () => {
           </button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-slate-50 text-center">
+        <div className="mt-8 pt-8 border-t border-slate-50 text-center">
           <p className="text-slate-600 text-sm font-medium">
             {isLogin ? "Don't have an account?" : "Already have an account?"}
             <button 
@@ -243,33 +231,23 @@ const Login: React.FC = () => {
           </p>
         </div>
 
-        <div className="mt-6 flex flex-col gap-3">
-          <div className="flex items-center gap-4 text-slate-300">
-            <div className="h-px flex-1 bg-slate-100"></div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">or continue with</span>
-            <div className="h-px flex-1 bg-slate-100"></div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <button 
-              onClick={handleGoogleLogin} 
-              disabled={isLoading} 
-              className="w-full flex items-center justify-center gap-2.5 bg-white border border-slate-200 py-3 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition-all active:scale-[0.98] disabled:opacity-50 text-xs shadow-sm"
-            >
-              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4 h-4" alt="Google" />
-              Google
-            </button>
-            
-            <button 
-              onClick={handleAppleLogin} 
-              disabled={isLoading} 
-              className="w-full flex items-center justify-center gap-2.5 bg-black text-white py-3 rounded-xl font-bold hover:bg-zinc-900 transition-all active:scale-[0.98] disabled:opacity-50 text-xs shadow-sm"
-            >
-              <Apple size={16} className="fill-current" />
-              Apple
-            </button>
-          </div>
-        </div>
+        {isLogin && (
+           <div className="mt-6 flex flex-col gap-3">
+              <div className="flex items-center gap-4 text-slate-300">
+                <div className="h-px flex-1 bg-slate-100"></div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">or</span>
+                <div className="h-px flex-1 bg-slate-100"></div>
+              </div>
+              <button 
+                onClick={handleGoogleLogin} 
+                disabled={isLoading} 
+                className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 py-3.5 rounded-lg font-bold text-slate-700 hover:bg-slate-50 transition-all active:scale-[0.98] disabled:opacity-50 text-sm"
+              >
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4 h-4" alt="Google" />
+                Continue with Google
+              </button>
+           </div>
+        )}
       </div>
     </div>
   );
