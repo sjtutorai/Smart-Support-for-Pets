@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate, useParams } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from "react-router-dom";
 import Layout from './components/Layout';
 import { AppRoutes, PetProfile, WeightRecord, VaccinationRecord } from './types';
 import { AuthProvider, useAuth } from './context/AuthContext';
