@@ -109,7 +109,19 @@ export const getUserById = async (id: string) => {
   if (!id) return null;
   const userRef = doc(db, "users", id);
   const snap = await getDoc(userRef);
-  return snap.exists() ? { id: snap.id, ...snap.data() } as User : null;
+  return snap.exists() ? { uid: snap.id, ...snap.data() } as User : null;
+};
+
+export const getUserByUsername = async (username: string): Promise<User | null> => {
+  if (!username) return null;
+  const lowerCaseUsername = username.toLowerCase().trim();
+  const q = query(collection(db, "users"), where("username", "==", lowerCaseUsername), limit(1));
+  const querySnapshot = await getDocs(q);
+  if (querySnapshot.empty) {
+    return null;
+  }
+  const userDoc = querySnapshot.docs[0];
+  return { uid: userDoc.id, ...userDoc.data() } as User;
 };
 
 export const getPetsByOwnerId = async (ownerId: string): Promise<PetProfile[]> => {
@@ -117,6 +129,12 @@ export const getPetsByOwnerId = async (ownerId: string): Promise<PetProfile[]> =
     const q = query(collection(db, "pets"), where("ownerId", "==", ownerId), limit(10));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as PetProfile);
+};
+
+export const getAllUsers = async (): Promise<User[]> => {
+  const usersCollection = collection(db, "users");
+  const usersSnapshot = await getDocs(usersCollection);
+  return usersSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }) as User);
 };
 
 export const searchPetsAndOwners = async (searchText: string): Promise<{ pet: PetProfile, owner: User | null }[]> => {
@@ -153,7 +171,7 @@ export const searchPetsAndOwners = async (searchText: string): Promise<{ pet: Pe
   }
 
   // Process owner search results
-  const ownerResults = ownersSnapshot.docs.map(doc => ({ ...doc.data() }) as User);
+  const ownerResults = ownersSnapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id }) as User);
   for (const owner of ownerResults) {
       const petsOfOwner = await getPetsByOwnerId(owner.uid);
       for (const pet of petsOfOwner) {
@@ -311,8 +329,8 @@ export const searchUsersByEmail = async (email: string, currentUserId: string) =
   );
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs
-    .map(doc => ({ id: doc.id, ...doc.data() }))
-    .filter(user => user.id !== currentUserId);
+    .map(doc => ({ uid: doc.id, ...doc.data() }))
+    .filter(user => (user as User).uid !== currentUserId);
 };
 
 export const followUser = async (currentUserId: string, targetUserId: string) => {

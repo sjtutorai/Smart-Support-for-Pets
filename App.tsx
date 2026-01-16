@@ -29,6 +29,8 @@ const Privacy = lazy(() => import('./pages/Privacy'));
 const Chat = lazy(() => import('./pages/Chat'));
 const FindFriends = lazy(() => import('./pages/FindFriends'));
 const PublicPetProfile = lazy(() => import('./pages/PublicPetProfile'));
+const UserProfile = lazy(() => import('./pages/UserProfile'));
+const UsernameDataStore = lazy(() => import('./pages/UsernameDataStore'));
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
@@ -414,6 +416,8 @@ const AppContent: React.FC = () => {
         <Route path={AppRoutes.CHAT} element={<ProtectedRoute><Chat /></ProtectedRoute>} />
         <Route path={AppRoutes.FIND_FRIENDS} element={<ProtectedRoute><FindFriends /></ProtectedRoute>} />
         <Route path="/pet/:petId" element={<ProtectedRoute><PublicPetProfile /></ProtectedRoute>} />
+        <Route path="/user/:username" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
+        <Route path="/usernamedatastore" element={<ProtectedRoute><UsernameDataStore /></ProtectedRoute>} />
         <Route path={AppRoutes.TERMS} element={<ProtectedRoute><Terms /></ProtectedRoute>} />
         <Route path={AppRoutes.PRIVACY} element={<ProtectedRoute><Privacy /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />

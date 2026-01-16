@@ -69,19 +69,18 @@ const PublicPetProfile: React.FC = () => {
                     <h1 className="text-5xl font-black text-slate-900 tracking-tighter mt-1">{pet.name}</h1>
                     <p className="text-slate-500 font-medium mt-2 max-w-lg">{pet.breed}</p>
                     
-                    {owner && (
-                        <div className="mt-6 flex items-center justify-center md:justify-start gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100 self-start inline-flex">
-                             <div className="w-10 h-10 rounded-xl overflow-hidden bg-white">
-                                <img src={owner.photoURL || `https://ui-avatars.com/api/?name=${owner.displayName}`} alt={owner.displayName || ''} className="w-full h-full object-cover" />
-                             </div>
-                             <div>
-                                <p className="text-[10px] font-bold uppercase text-slate-400">Owner</p>
-                                <p className="font-bold text-slate-700 leading-tight">{owner.displayName}</p>
-                             </div>
-                             <Link to={AppRoutes.CHAT} className="p-3 bg-white rounded-xl shadow-sm text-slate-400 hover:bg-theme-light hover:text-theme transition-colors">
-                                <MessageSquare size={18} />
-                             </Link>
-                        </div>
+                    {owner && owner.username && (
+                        <Link to={`/user/${owner.username}`} className="mt-6 group inline-block">
+                            <div className="flex items-center justify-center md:justify-start gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100 group-hover:shadow-lg group-hover:border-theme-light transition-all">
+                                 <div className="w-10 h-10 rounded-xl overflow-hidden bg-white">
+                                    <img src={owner.photoURL || `https://ui-avatars.com/api/?name=${owner.displayName}`} alt={owner.displayName || ''} className="w-full h-full object-cover" />
+                                 </div>
+                                 <div>
+                                    <p className="text-[10px] font-bold uppercase text-slate-400">Owner</p>
+                                    <p className="font-bold text-slate-700 leading-tight group-hover:text-theme transition-colors">{owner.displayName}</p>
+                                 </div>
+                            </div>
+                        </Link>
                     )}
                 </div>
             </div>
