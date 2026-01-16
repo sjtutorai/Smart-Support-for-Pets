@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Heart, Shield, Mail, Lock, User, MapPin, PawPrint, Loader2, ArrowRight, AlertCircle } from 'lucide-react';
 import { loginWithGoogle, loginWithIdentifier, signUpWithEmail } from '../services/firebase';
@@ -150,8 +149,8 @@ const Login: React.FC = () => {
                 </div>
               </div>
 
-              <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold text-base hover:bg-indigo-700 transition-all active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-2 mt-4 shadow-lg shadow-indigo-100">
-                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (isLogin ? "Sign In" : "Create Account")}
+              <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 text-white h-[56px] rounded-2xl font-bold text-base hover:bg-indigo-700 transition-all active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-2 mt-4 shadow-lg shadow-indigo-100">
+                {isLoading ? <><Loader2 className="w-5 h-5 animate-spin" /> Verifying...</> : (isLogin ? "Sign In" : "Create Account")}
                 {!isLoading && <ArrowRight size={18} />}
               </button>
             </form>

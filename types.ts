@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export enum AppRoutes {
@@ -13,7 +12,6 @@ export enum AppRoutes {
   PRIVACY = '/privacy',
   CHAT = '/chat',
   FIND_FRIENDS = '/find-friends',
-  PUBLIC_PET_PROFILE = '/v/:petId',
 }
 
 export interface NavItem {

@@ -5,8 +5,7 @@ import { AppRoutes, PetProfile, WeightRecord, VaccinationRecord } from './types'
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { GoogleGenAI } from "@google/genai";
-import { syncPetToDb, getPetById, sendFoundPetNotification, sendRegistrationPermissionRequest } from './services/firebase';
-import jsQR from "jsqr";
+import { syncPetToDb, getPetById } from './services/firebase';
 import { 
   Dog, Plus, PawPrint, Weight, Palette, Fingerprint, 
   AlertCircle, Camera, Check, CheckCircle2, ChevronRight, Cat, Bird, Rabbit, 
@@ -113,111 +112,6 @@ const calculateAge = (birthday: string) => {
   return { years: Math.max(0, years), months: Math.max(0, months) };
 };
 
-const PublicPetProfile: React.FC = () => {
-  const { petId } = useParams<{ petId: string }>();
-  const [pet, setPet] = useState<PetProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchPet = async () => {
-      if (!petId) {
-        setLoading(false);
-        return;
-      }
-      
-      try {
-        setLoading(true);
-        const data = await getPetById(petId);
-        if (data) {
-          setPet(data as PetProfile);
-        } else {
-          setError("Pet not found");
-        }
-      } catch (err) {
-        console.error("Fetch error:", err);
-        setError("Failed to load pet details. Please check your connection.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchPet();
-  }, [petId]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-10">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="animate-spin text-theme" size={64} />
-          <p className="font-black text-xs uppercase tracking-widest text-slate-400">Fetching Identity...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !pet) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-10 text-center space-y-6">
-        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-xl text-rose-300"><AlertCircle size={48} /></div>
-        <h2 className="text-3xl font-black text-slate-800">{error || "Companion Not Found"}</h2>
-        <p className="text-slate-500 max-w-sm">The profile you are looking for doesn't exist or has been made private.</p>
-        <a href="/" className="px-8 py-4 bg-theme text-white rounded-2xl font-black uppercase tracking-widest text-xs">Back to Home</a>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-slate-50 py-12 px-6">
-      <div className="max-w-xl mx-auto bg-white rounded-[4rem] shadow-2xl overflow-hidden border border-slate-100">
-        <div className="bg-theme p-10 text-white flex flex-col items-center text-center space-y-4">
-          <div className="w-44 h-44 rounded-[3.5rem] border-8 border-white shadow-2xl overflow-hidden bg-white/20">
-            {pet.avatarUrl ? <img src={pet.avatarUrl} className="w-full h-full object-cover" /> : <Dog size={80} className="m-10 opacity-30" />}
-          </div>
-          <div className="space-y-1">
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60">Verified Identity</p>
-            <h3 className="text-5xl font-black tracking-tighter">{pet.name}</h3>
-            <p className="text-lg font-bold opacity-80 uppercase tracking-widest">{pet.breed} • {pet.species}</p>
-          </div>
-        </div>
-        <div className="p-10 space-y-10">
-          <div className="grid grid-cols-2 gap-6">
-            <div className="bg-slate-50 p-6 rounded-[2.5rem] space-y-2 border border-slate-100/50">
-              <div className="flex items-center gap-2 text-theme"><UserIconLucide size={16} /> <span className="text-[10px] font-black uppercase tracking-widest">Parent</span></div>
-              <p className="font-black text-slate-800">{pet.ownerName || 'Pet Parent'}</p>
-            </div>
-            <div className="bg-slate-50 p-6 rounded-[2.5rem] space-y-2 border border-slate-100/50">
-              <div className="flex items-center gap-2 text-theme"><Calendar size={16} /> <span className="text-[10px] font-black uppercase tracking-widest">Age</span></div>
-              <p className="font-black text-slate-800">{pet.ageYears}y {pet.ageMonths}m</p>
-            </div>
-          </div>
-          <div className="bg-indigo-50/50 p-8 rounded-[3rem] border border-theme/10 space-y-4 relative overflow-hidden">
-            <Quote className="absolute top-4 left-4 opacity-5" size={48} />
-            <h4 className="text-[10px] font-black text-theme uppercase tracking-[0.2em] flex items-center gap-2"><InfoIcon size={14} /> Profile Description</h4>
-            <p className="text-slate-600 font-medium italic leading-relaxed relative z-10">"{pet.bio || 'This companion is a verified member of the SS Paw Pal family.'}"</p>
-          </div>
-          <div className="space-y-4">
-            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Medical Highlights</h4>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100/50">
-                <div className="flex items-center gap-3">
-                  <Weight size={18} className="text-rose-500" />
-                  <span className="text-xs font-black uppercase tracking-widest text-slate-500">Current Weight</span>
-                </div>
-                <span className="font-black text-slate-800">{pet.weightHistory?.[pet.weightHistory.length - 1]?.weight || '--'} kg</span>
-              </div>
-            </div>
-          </div>
-          <div className="pt-6 flex flex-col gap-4 text-center">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Scanned via Official SS Paw Pal Tag</p>
-            <div className="w-full h-px bg-slate-100"></div>
-            <a href="https://smartsupportforpets.vercel.app/" target="_blank" className="text-[10px] font-black text-theme uppercase tracking-widest hover:underline">Register your pet companion</a>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const PetProfilePage: React.FC = () => {
   const { user } = useAuth();
   const [pets, setPets] = useState<PetProfile[]>([]);
@@ -227,13 +121,6 @@ const PetProfilePage: React.FC = () => {
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
   const [isGeneratingHealthReport, setIsGeneratingHealthReport] = useState(false);
   const [healthReport, setHealthReport] = useState<string | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const [isManualInputMode, setIsManualInputMode] = useState(false);
-  const [manualIdInput, setManualIdInput] = useState('');
-  const [scannedPet, setScannedPet] = useState<any>(null);
-  const [isNotifying, setIsNotifying] = useState(false);
-  const [notificationSent, setNotificationSent] = useState(false);
-  const [permissionRequested, setPermissionRequested] = useState(false);
   const [showKeyRequirement, setShowKeyRequirement] = useState(false);
   const [step, setStep] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
@@ -241,7 +128,6 @@ const PetProfilePage: React.FC = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const qrInputRef = useRef<HTMLInputElement>(null);
   const [newWeight, setNewWeight] = useState('');
 
   // Optimized pet loading effect to prevent unnecessary loops
@@ -268,103 +154,6 @@ const PetProfilePage: React.FC = () => {
     for (const pet of updatedPets) await syncPetToDb(pet);
   };
 
-  const generateQRCode = (petId: string) => {
-    const verifyUrl = `${window.location.origin}/#/v/${petId}`;
-    return `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(verifyUrl)}&color=4f46e5&bgcolor=ffffff&margin=10`;
-  };
-
-  const handleQRUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return;
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.drawImage(img, 0, 0);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          if (imageData) {
-            const code = jsQR(imageData.data, imageData.width, imageData.height);
-            if (code) {
-              identifyPet(code.data);
-            } else {
-              alert("No QR code detected in this image. Please ensure it is clear.");
-            }
-          }
-        };
-        img.src = event.target?.result as string;
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const identifyPet = async (petIdOrUrl: string) => {
-    if (!petIdOrUrl) return;
-    
-    // Extract ID if a full URL was pasted/scanned
-    // Example: /#/v/UP20230101-ABCD
-    let normalizedId = petIdOrUrl.trim();
-    const match = normalizedId.match(/\/v\/([a-zA-Z0-9-]+)/);
-    if (match && match[1]) {
-      normalizedId = match[1];
-    }
-    
-    normalizedId = normalizedId.toUpperCase();
-
-    setIsScanning(true);
-    setIsNotifying(true); // Re-use loading state visual
-    setScannedPet(null);
-    setNotificationSent(false);
-    setPermissionRequested(false);
-    
-    try {
-      const petData = await getPetById(normalizedId);
-      if (petData) {
-        setScannedPet(petData);
-        setIsManualInputMode(false);
-        // Automatically send a "scan detected" message to the owner
-        await sendFoundPetNotification(petData, user?.displayName || "A Concerned Pet Parent", user?.uid);
-      } else {
-        alert("This SSP Tag ID was not found in our global database.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Database lookup failed. Check your internet.");
-    } finally {
-      setIsNotifying(false);
-    }
-  };
-
-  const handleNotifyOwnerManual = async () => {
-    if (!scannedPet) return;
-    setIsNotifying(true);
-    try {
-      await sendFoundPetNotification(scannedPet, user?.displayName || "A Concerned Pet Parent", user?.uid);
-      setNotificationSent(true);
-    } catch (err) {
-      alert("Failed to send additional notification.");
-    } finally {
-      setIsNotifying(false);
-    }
-  };
-
-  const handleRequestRegistrationPermission = async () => {
-    if (!scannedPet || !user) return;
-    setIsNotifying(true);
-    try {
-      await sendRegistrationPermissionRequest(scannedPet, user.displayName || 'Finder', user.uid);
-      setPermissionRequested(true);
-    } catch (err) {
-      alert("Failed to send permission request.");
-    } finally {
-      setIsNotifying(false);
-    }
-  };
-
   const handleAddPet = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -378,8 +167,7 @@ const PetProfilePage: React.FC = () => {
     const id = `${ownerInitial}${petInitial}${birthDate}-${uniqueSuffix}`;
     
     const { years, months } = calculateAge(newPet.birthday || '');
-    const qrCodeUrl = generateQRCode(id);
-    const completePet: PetProfile = { ...newPet as PetProfile, id, ownerId: user.uid, ownerName: user.displayName || 'Pet Parent', qrCodeUrl, ageYears: String(years), ageMonths: String(months), weightHistory: [], vaccinations: [], isPublic: true };
+    const completePet: PetProfile = { ...newPet as PetProfile, id, ownerId: user.uid, ownerName: user.displayName || 'Pet Parent', ageYears: String(years), ageMonths: String(months), weightHistory: [], vaccinations: [], isPublic: true };
     const updatedPets = [...pets, completePet];
     await savePetsToStorage(updatedPets);
     setSelectedPet(completePet);
@@ -393,7 +181,7 @@ const PetProfilePage: React.FC = () => {
     setError(null);
     if (!selectedPet.birthday || new Date(selectedPet.birthday) > new Date()) { setError("Birth date cannot be in the future."); return; }
     const { years, months } = calculateAge(selectedPet.birthday || '');
-    const updatedPet = { ...selectedPet, ageYears: String(years), ageMonths: String(months), qrCodeUrl: generateQRCode(selectedPet.id) };
+    const updatedPet = { ...selectedPet, ageYears: String(years), ageMonths: String(months) };
     const updatedPets = pets.map(p => p.id === selectedPet.id ? updatedPet : p);
     await savePetsToStorage(updatedPets);
     setSelectedPet(updatedPet);
@@ -478,15 +266,9 @@ const PetProfilePage: React.FC = () => {
       <div className="flex flex-col md:flex-row items-center justify-between gap-8">
         <div>
           <h2 className="text-5xl font-black text-slate-900 tracking-tighter">My Pet Family</h2>
-          <p className="text-slate-500 font-medium">Manage your companions or scan an SSP Tag to identify a lost pet.</p>
+          <p className="text-slate-500 font-medium">Manage your companions and track their wellness.</p>
         </div>
         <div className="flex items-center gap-4">
-          <button 
-            onClick={() => setIsScanning(true)} 
-            className="flex items-center gap-3 px-6 py-4 bg-white border border-slate-200 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm group"
-          >
-            <Scan size={20} className="text-theme group-hover:scale-110 transition-transform" /> Scan SSP Tag
-          </button>
           <button 
             onClick={() => { setStep(1); setIsAdding(true); }} 
             className="flex items-center gap-3 px-8 py-4 bg-theme text-white rounded-2xl font-black text-sm uppercase tracking-widest bg-theme-hover transition-all shadow-xl shadow-theme/10 active:scale-95"
@@ -510,153 +292,6 @@ const PetProfilePage: React.FC = () => {
           </button>
         ))}
       </div>
-
-      {isScanning && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="bg-white rounded-[3.5rem] p-10 max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden relative">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-2xl font-black text-slate-800 tracking-tight">Identify SSP Tag</h3>
-              <button onClick={() => { setIsScanning(false); setScannedPet(null); setIsManualInputMode(false); setManualIdInput(''); }} className="p-2 text-slate-400 hover:text-slate-600"><X size={24} /></button>
-            </div>
-
-            {scannedPet ? (
-              <div className="space-y-8 animate-in zoom-in-95">
-                <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100 flex items-center gap-6">
-                  <div className="w-24 h-24 rounded-3xl overflow-hidden bg-white shadow-xl border-4 border-white shrink-0">
-                    {scannedPet.avatarUrl ? <img src={scannedPet.avatarUrl} className="w-full h-full object-cover" /> : <Dog size={40} className="m-7 text-slate-200" />}
-                  </div>
-                  <div>
-                    <h4 className="text-3xl font-black text-slate-900 tracking-tight">{scannedPet.name}</h4>
-                    <p className="text-xs font-black text-theme uppercase tracking-widest">{scannedPet.breed} • {scannedPet.species}</p>
-                    <p className="text-[10px] font-bold text-slate-400 mt-1">Parent: {scannedPet.ownerName}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {notificationSent ? (
-                    <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100 text-emerald-700 flex flex-col items-center gap-2 text-center animate-in slide-in-from-bottom-2">
-                       <CheckCircle2 size={32} />
-                       <p className="font-black text-sm uppercase tracking-widest">Owner Alerted</p>
-                       <p className="text-xs font-medium">A push message has been sent to the owner with your identity as the scanner. They will contact you shortly.</p>
-                    </div>
-                  ) : (
-                    <button 
-                      onClick={handleNotifyOwnerManual} 
-                      disabled={isNotifying}
-                      className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 disabled:opacity-50"
-                    >
-                      {isNotifying ? <Loader2 className="animate-spin" /> : <MessageCircle size={20} />}
-                      Notify Owner Now
-                    </button>
-                  )}
-
-                  {permissionRequested ? (
-                    <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100 text-amber-700 flex flex-col items-center gap-2 text-center animate-in slide-in-from-bottom-2">
-                       <ShieldCheck size={32} />
-                       <p className="font-black text-sm uppercase tracking-widest">Request Pending</p>
-                       <p className="text-xs font-medium">Ownership permission request sent to the current owner. You'll be notified if approved.</p>
-                    </div>
-                  ) : (
-                    <button 
-                      onClick={handleRequestRegistrationPermission}
-                      disabled={isNotifying}
-                      className="w-full bg-white text-slate-500 py-4 rounded-2xl font-black text-xs uppercase tracking-widest border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
-                    >
-                      <UserPlus size={16} /> Request Permission to Register
-                    </button>
-                  )}
-
-                  <button 
-                    onClick={() => window.location.href = `#/v/${scannedPet.id}`}
-                    className="w-full text-theme py-2 font-black text-xs uppercase tracking-[0.2em] hover:underline"
-                  >
-                    View Full Public Profile
-                  </button>
-                </div>
-              </div>
-            ) : isManualInputMode ? (
-              <div className="space-y-8 animate-in slide-in-from-bottom-4">
-                <div className="space-y-4 text-center">
-                  <div className="w-16 h-16 bg-theme-light text-theme rounded-2xl flex items-center justify-center mx-auto mb-2">
-                    <Hash size={32} />
-                  </div>
-                  <h4 className="text-xl font-black text-slate-800 tracking-tight">Enter Unique ID</h4>
-                  <p className="text-sm text-slate-500 font-medium">Type the SSP-ID found on the physical tag or paste the profile link.</p>
-                </div>
-
-                <div className="space-y-4">
-                  <input 
-                    autoFocus
-                    type="text"
-                    value={manualIdInput}
-                    onChange={(e) => setManualIdInput(e.target.value)}
-                    placeholder="e.g. SY20210515-ABCD"
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-6 text-xl font-black text-slate-800 outline-none ring-theme focus:ring-4 transition-all tracking-wider"
-                  />
-                  
-                  <div className="flex gap-4">
-                    <button 
-                      onClick={() => setIsManualInputMode(false)}
-                      className="flex-1 bg-slate-100 text-slate-500 py-5 rounded-2xl font-black text-xs uppercase tracking-widest"
-                    >
-                      Go Back
-                    </button>
-                    <button 
-                      onClick={() => identifyPet(manualIdInput)}
-                      disabled={!manualIdInput.trim() || isNotifying}
-                      className="flex-[2] bg-theme text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-theme/20 flex items-center justify-center gap-2"
-                    >
-                      {isNotifying ? <Loader2 className="animate-spin" size={18} /> : <ArrowRight size={18} />}
-                      Identify Tag
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-8">
-                {/* Visual Scanner Area */}
-                <div className="relative w-full aspect-square md:aspect-video bg-slate-900 rounded-[2.5rem] overflow-hidden group">
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <QrCode size={100} className="text-white/20 animate-pulse mb-4" />
-                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.5em]">System Ready</p>
-                  </div>
-                  <div className="absolute top-0 left-0 w-full h-1 bg-theme animate-scan-beam z-20 shadow-[0_0_15px_var(--theme-color)]"></div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10"></div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <button 
-                    onClick={() => qrInputRef.current?.click()}
-                    className="flex flex-col items-center gap-3 p-8 bg-slate-50 rounded-[2rem] border border-slate-200 hover:border-theme hover:bg-white transition-all group shadow-sm"
-                  >
-                    <div className="p-3 bg-white rounded-2xl shadow-sm group-hover:scale-110 transition-transform">
-                        <ImageIcon className="text-theme" size={32} />
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-theme">Upload Tag Image</span>
-                    <input type="file" ref={qrInputRef} className="hidden" accept="image/*" onChange={handleQRUpload} />
-                  </button>
-                  <button 
-                    onClick={() => setIsManualInputMode(true)}
-                    className="flex flex-col items-center gap-3 p-8 bg-slate-50 rounded-[2rem] border border-slate-200 hover:border-theme hover:bg-white transition-all group shadow-sm"
-                  >
-                    <div className="p-3 bg-white rounded-2xl shadow-sm group-hover:scale-110 transition-transform">
-                        <Fingerprint className="text-theme" size={32} />
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-theme">Enter Tag ID</span>
-                  </button>
-                </div>
-
-                <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex gap-3">
-                    <InfoIcon size={18} className="text-blue-500 shrink-0 mt-0.5" />
-                    <p className="text-xs text-blue-700 font-medium leading-relaxed">
-                        Scanning an SSP Tag helps you identify a pet and automatically notifies the owner of the pet's location to help reunite them.
-                    </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {(isAdding || isEditing) ? (
         <div className="max-w-3xl mx-auto animate-fade-in bg-white p-14 rounded-[3.5rem] shadow-2xl border border-slate-100 relative overflow-hidden">
@@ -739,10 +374,6 @@ const PetProfilePage: React.FC = () => {
                   <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">{selectedPet.breed} • {selectedPet.species}</p>
                   <p className="text-xs font-black text-theme uppercase tracking-widest">{selectedPet.ageYears}y {selectedPet.ageMonths}m Old</p>
                 </div>
-                <div className="w-full p-4 bg-slate-50 rounded-[2rem] flex flex-col items-center gap-4 border border-slate-100/50">
-                  <img src={generateQRCode(selectedPet.id)} className="w-40 h-40 bg-white p-2 rounded-2xl shadow-inner border border-slate-100" alt="QR ID" />
-                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] font-mono">SSP-ID: {selectedPet.id.toUpperCase()}</div>
-                </div>
               </div>
             </div>
             <div className="bg-slate-900 rounded-[3rem] p-8 text-white space-y-4 shadow-2xl relative overflow-hidden"><Quote className="absolute -top-2 -left-2 w-12 h-12 text-white/5" /><h4 className="font-black text-lg tracking-tight">AI Care Context</h4><p className="text-slate-400 text-sm leading-relaxed italic">"{selectedPet.bio || 'This companion is currently undergoing deep behavioral analysis.'}"</p></div>
@@ -770,7 +401,7 @@ const PetProfilePage: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="py-32 text-center"><div className="bg-theme-light w-24 h-24 rounded-[3rem] flex items-center justify-center mx-auto mb-8 text-theme shadow-inner"><Dog size={48} /></div><h3 className="text-3xl font-black text-slate-900 mb-4 tracking-tight">Family Registry Empty</h3><p className="text-slate-500 font-medium mb-10 max-w-sm mx-auto">Register your companions to track their health and generate unique identification codes.</p><button onClick={() => { setStep(1); setIsAdding(true); }} className="bg-theme text-white px-10 py-5 rounded-[2rem] font-black shadow-2xl shadow-theme/20 bg-theme-hover transition-all active:scale-95">Add First Pet</button></div>
+        <div className="py-32 text-center"><div className="bg-theme-light w-24 h-24 rounded-[3rem] flex items-center justify-center mx-auto mb-8 text-theme shadow-inner"><Dog size={48} /></div><h3 className="text-3xl font-black text-slate-900 mb-4 tracking-tight">Family Registry Empty</h3><p className="text-slate-500 font-medium mb-10 max-w-sm mx-auto">Register your companions to track their health and behavior.</p><button onClick={() => { setStep(1); setIsAdding(true); }} className="bg-theme text-white px-10 py-5 rounded-[2rem] font-black shadow-2xl shadow-theme/20 bg-theme-hover transition-all active:scale-95">Add First Pet</button></div>
       )}
     </div>
   );
@@ -793,7 +424,6 @@ const AppContent: React.FC = () => {
     <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path={AppRoutes.PUBLIC_PET_PROFILE} element={<PublicPetProfile />} />
         <Route path={AppRoutes.HOME} element={<ProtectedRoute><Home /></ProtectedRoute>} />
         <Route path={AppRoutes.AI_ASSISTANT} element={<ProtectedRoute><AIAssistant /></ProtectedRoute>} />
         <Route path={AppRoutes.PET_CARE} element={<ProtectedRoute><PetCare /></ProtectedRoute>} />

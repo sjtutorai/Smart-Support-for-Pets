@@ -1,4 +1,3 @@
-
 import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
@@ -84,7 +83,7 @@ export const syncUserToDb = async (user: FirebaseUser, extraData: any = {}) => {
 };
 
 /**
- * Syncs pet profile to global Firestore collection for QR public access.
+ * Syncs pet profile to global Firestore collection.
  */
 export const syncPetToDb = async (pet: any) => {
   const petRef = doc(db, "pets", pet.id);
@@ -99,34 +98,6 @@ export const getPetById = async (id: string) => {
   const petRef = doc(db, "pets", id);
   const snap = await getDoc(petRef);
   return snap.exists() ? snap.data() : null;
-};
-
-export const sendFoundPetNotification = async (pet: any, finderName: string, finderId?: string) => {
-  if (!pet.ownerId) return;
-  const notifRef = collection(db, "users", pet.ownerId, "notifications");
-  await addDoc(notifRef, {
-    title: "🐾 Pet Tag Scanned!",
-    message: `Your pet ${pet.name}'s SSP tag was just scanned by ${finderName}. They have been informed of your contact preference.`,
-    type: "warning",
-    timestamp: new Date().toISOString(),
-    read: false,
-    finderId: finderId || "anonymous"
-  });
-};
-
-export const sendRegistrationPermissionRequest = async (pet: any, finderName: string, finderId: string) => {
-  if (!pet.ownerId) return;
-  const notifRef = collection(db, "users", pet.ownerId, "notifications");
-  await addDoc(notifRef, {
-    title: "🔒 Permission Request",
-    message: `${finderName} has scanned ${pet.name} and is requesting permission to register/co-parent this pet profile. Do you allow this?`,
-    type: "info",
-    timestamp: new Date().toISOString(),
-    read: false,
-    finderId: finderId,
-    requestId: `reg_${pet.id}_${finderId}`,
-    actionRequired: true
-  });
 };
 
 export const loginWithGoogle = async () => {

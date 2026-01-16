@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
   ShieldCheck, 
@@ -208,7 +207,7 @@ const Home: React.FC = () => {
               </div>
               <h3 className="text-5xl font-black mb-6 leading-[1.1] tracking-tighter">Your first pet profile is ready for creation.</h3>
               <p className="text-white/80 text-xl mb-12 leading-relaxed font-medium">
-                Register your companions today to unlock custom health tracking, unique SSP-ID QR codes, and smart behavior monitoring.
+                Register your companions today to unlock custom health tracking and smart behavior monitoring.
               </p>
               <Link 
                 to={AppRoutes.PET_PROFILE}
