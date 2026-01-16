@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useParams } from "react-router-dom";
 import Layout from './components/Layout';
@@ -88,7 +87,7 @@ const PetProfilePage: React.FC = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
-  const [showKeyRequirement, setShowKeyRequirement] = useState(false);
+  const [showKeyPromptOverlay, setShowKeyPromptOverlay] = useState(false);
   const [step, setStep] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const [newPet, setNewPet] = useState<Partial<PetProfile>>({ name: '', breed: '', birthday: '', bio: '', species: 'Dog', weightHistory: [], vaccinations: [] });
@@ -129,12 +128,17 @@ const PetProfilePage: React.FC = () => {
 
   const generateAIAvatar = async (base64Source?: string) => {
     if (!selectedPet) return;
+    
+    // Check for API key presence
     const hasKey = await window.aistudio?.hasSelectedApiKey();
     if (!hasKey) { 
-      setShowKeyRequirement(true); 
+      setShowKeyPromptOverlay(true); 
       return; 
     }
+
     setIsGeneratingAvatar(true);
+    setShowKeyPromptOverlay(false);
+    
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `A cinematic, ultra-high-quality professional studio avatar portrait of a ${selectedPet.breed} ${selectedPet.species} named ${selectedPet.name}. Detailed fur, vibrant lighting, 4K resolution.`;
@@ -158,7 +162,9 @@ const PetProfilePage: React.FC = () => {
         }
       }
     } catch (err: any) {
-      if (err.message?.includes("Requested entity was not found")) setShowKeyRequirement(true);
+      if (err.message?.includes("Requested entity was not found")) {
+        setShowKeyPromptOverlay(true);
+      }
     } finally { setIsGeneratingAvatar(false); }
   };
 
@@ -181,7 +187,7 @@ const PetProfilePage: React.FC = () => {
         {pets.map(p => (
           <button 
             key={p.id} 
-            onClick={() => { setSelectedPet(p); setIsAdding(false); }} 
+            onClick={() => { setSelectedPet(p); setIsAdding(false); setShowKeyPromptOverlay(false); }} 
             className={`flex items-center gap-3 px-5 py-3 rounded-2xl border-2 transition-all shrink-0 ${selectedPet?.id === p.id && !isAdding ? 'bg-theme-light border-theme shadow-sm scale-105' : 'bg-white border-transparent hover:bg-slate-50'}`}
           >
             <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">
@@ -193,7 +199,7 @@ const PetProfilePage: React.FC = () => {
       </div>
 
       {isAdding ? (
-        <div className="max-w-2xl mx-auto bg-white p-10 rounded-[2.5rem] shadow-2xl border border-slate-50 relative overflow-hidden">
+        <div className="max-w-2xl mx-auto bg-white p-10 rounded-[2.5rem] shadow-2xl border border-slate-100 relative overflow-hidden">
           {saveSuccess && <div className="absolute inset-0 bg-theme/95 flex flex-col items-center justify-center z-50 text-white animate-in fade-in"><CheckCircle2 size={48} /><h3 className="text-2xl font-black mt-2">Companion Registered</h3></div>}
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-2xl font-black text-slate-900">Step {step}: {step === 1 ? 'Select Domain' : step === 2 ? 'Species' : 'Identity'}</h2>
@@ -226,18 +232,38 @@ const PetProfilePage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1 space-y-8">
             <div className="bg-white rounded-[2.5rem] p-8 border border-slate-50 shadow-xl text-center space-y-6 relative overflow-hidden group">
-              <div className="w-48 h-48 rounded-[3rem] overflow-hidden mx-auto shadow-2xl relative">
+              {/* Avatar Square with Integrated Logic */}
+              <div className="w-52 h-52 rounded-[3.5rem] overflow-hidden mx-auto shadow-2xl relative border-4 border-white">
                 {selectedPet.avatarUrl ? (
                   <img src={selectedPet.avatarUrl} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-slate-50 flex items-center justify-center text-slate-200"><Dog size={64} /></div>
                 )}
+                
+                {/* Generation Loading State */}
                 {isGeneratingAvatar && (
                   <div className="absolute inset-0 bg-white/40 flex items-center justify-center backdrop-blur-md">
                     <Loader2 size={32} className="animate-spin text-theme" />
                   </div>
                 )}
+
+                {/* Integrated Key Requirement Overlay (Screenshot 2 Match) */}
+                {showKeyPromptOverlay && (
+                  <div className="absolute inset-0 bg-indigo-600/90 text-white flex flex-col items-center justify-center p-6 text-center animate-in zoom-in duration-300">
+                    <Key size={32} className="mb-3 text-theme shadow-sm" />
+                    <h5 className="text-[10px] font-black uppercase tracking-widest mb-2">Connect Paid Key</h5>
+                    <p className="text-[9px] font-medium leading-relaxed mb-4 opacity-90">Requires a Google Cloud project key to unlock pro avatars.</p>
+                    <button 
+                      onClick={() => { window.aistudio?.openSelectKey(); setShowKeyPromptOverlay(false); }}
+                      className="bg-white text-indigo-600 px-4 py-2 rounded-lg font-black text-[9px] uppercase tracking-widest shadow-lg active:scale-95 transition-all mb-2"
+                    >
+                      Connect Key
+                    </button>
+                    <button onClick={() => setShowKeyPromptOverlay(false)} className="text-[8px] font-bold opacity-50 hover:opacity-100 transition-opacity">Dismiss</button>
+                  </div>
+                )}
               </div>
+
               <div className="flex gap-2 justify-center">
                 <button onClick={() => fileInputRef.current?.click()} className="p-3 bg-white border border-slate-100 rounded-xl hover:bg-slate-50 shadow-sm text-slate-500"><Camera size={20} /><input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -247,17 +273,14 @@ const PetProfilePage: React.FC = () => {
                     reader.readAsDataURL(file);
                   }
                 }} /></button>
-                <button onClick={() => generateAIAvatar()} disabled={isGeneratingAvatar} className="p-3 bg-slate-900 text-theme rounded-xl hover:bg-black shadow-lg shadow-slate-200"><Wand2 size={20} /></button>
+                <button 
+                  onClick={() => generateAIAvatar()} 
+                  disabled={isGeneratingAvatar} 
+                  className={`p-3 rounded-xl shadow-lg transition-all ${showKeyPromptOverlay ? 'bg-rose-500 text-white' : 'bg-slate-900 text-theme hover:bg-black'}`}
+                >
+                  <Wand2 size={20} />
+                </button>
               </div>
-
-              {showKeyRequirement && (
-                <div className="p-6 bg-indigo-50 rounded-3xl border border-indigo-100 animate-in zoom-in-95 space-y-4">
-                  <div className="flex items-center gap-3 text-indigo-900 font-black text-[10px] uppercase tracking-widest"><Key size={16} /> Paid API Key Required</div>
-                  <p className="text-[11px] text-indigo-700/80 font-medium leading-relaxed">To use high-quality AI avatar generation, you must select your own paid API key from a Google Cloud project.</p>
-                  <button onClick={() => { window.aistudio?.openSelectKey(); setShowKeyRequirement(false); }} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-100">Connect Key</button>
-                  <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="block text-[9px] font-black text-indigo-400 hover:underline">View Billing Documentation</a>
-                </div>
-              )}
 
               <div className="space-y-1">
                 <h3 className="text-4xl font-black text-slate-900 tracking-tighter">{selectedPet.name}</h3>

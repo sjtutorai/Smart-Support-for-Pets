@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Heart, 
@@ -157,8 +156,8 @@ const Community: React.FC = () => {
 
   const filteredPosts = useMemo(() => {
     let result = posts.filter(p => {
-      const matchesSearch = p.petName?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                           p.content?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = (p.petName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) || 
+                           (p.content?.toLowerCase() || '').includes(searchQuery.toLowerCase());
       const matchesType = typeFilter === 'All' || p.petType === typeFilter;
       return matchesSearch && matchesType;
     });
@@ -208,29 +207,30 @@ const Community: React.FC = () => {
         </div>
       </div>
 
-      {/* Discovery Dashboard: Fixed Search/Filter Bar */}
-      <div className="sticky top-0 z-40 py-2 bg-slate-50/50 backdrop-blur-md">
-        <div className="bg-white rounded-2xl p-2 shadow-lg border border-slate-100 flex flex-col md:flex-row gap-2">
+      {/* Discovery Dashboard: Fixed Search/Filter Bar matching Screenshot 1 */}
+      <div className="sticky top-0 z-40 py-2">
+        <div className="bg-white rounded-full p-2 shadow-sm border border-slate-100 flex items-center gap-2 max-w-4xl mx-auto">
           <div className="relative flex-1">
-            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={20} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" />
             <input 
               type="text" 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search moments by pet name..." 
-              className="w-full bg-slate-50 border-none rounded-xl py-3 pl-12 pr-4 text-xs font-bold text-slate-700 focus:ring-2 focus:ring-theme/10 transition-all outline-none" 
+              className="w-full bg-slate-50/50 border-none rounded-full py-4 pl-14 pr-4 text-sm font-medium text-slate-600 placeholder:text-slate-400 focus:ring-0 outline-none transition-all" 
             />
           </div>
-          <div className="relative md:w-48 shrink-0">
-            <Filter size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div className="h-10 w-px bg-slate-100 hidden md:block"></div>
+          <div className="relative shrink-0 md:min-w-[180px]">
+            <Filter size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <select 
               value={typeFilter}
               onChange={e => setTypeFilter(e.target.value)}
-              className="w-full bg-slate-50 border-none rounded-xl py-3 pl-12 pr-10 text-[10px] font-black uppercase tracking-widest text-slate-600 focus:ring-2 focus:ring-theme/10 appearance-none outline-none"
+              className="w-full bg-slate-50/50 border-none rounded-full py-4 pl-12 pr-10 text-[11px] font-black uppercase tracking-[0.1em] text-slate-600 focus:ring-0 appearance-none outline-none cursor-pointer"
             >
               {PET_TYPES.map(t => <option key={t} value={t}>{t === 'All' ? 'Every Species' : t}</option>)}
             </select>
-            <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
+            <ChevronDown size={16} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
           </div>
         </div>
       </div>
