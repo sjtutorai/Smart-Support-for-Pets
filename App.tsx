@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useParams } from "react-router-dom";
 import Layout from './components/Layout';
@@ -79,19 +78,21 @@ const calculateAge = (birthday: string) => {
   return { years: Math.max(0, years), months: Math.max(0, months) };
 };
 
+const getInitials = (name: string) => name ? name[0].toUpperCase() : 'X';
+
 const PetProfilePage: React.FC = () => {
   const { user } = useAuth();
   const [pets, setPets] = useState<PetProfile[]>([]);
   const [selectedPet, setSelectedPet] = useState<PetProfile | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
-  const [showKeyPrompt, setShowKeyPrompt] = useState(false);
+  const [showKeyPromptOverlay, setShowKeyPromptOverlay] = useState(false);
   const [step, setStep] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const [newPet, setNewPet] = useState<Partial<PetProfile>>({ name: '', breed: '', birthday: '', bio: '', species: 'Dog', weightHistory: [], vaccinations: [] });
   const [saveSuccess, setSaveSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const qrFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -128,14 +129,15 @@ const PetProfilePage: React.FC = () => {
   const generateAIAvatar = async (base64Source?: string) => {
     if (!selectedPet) return;
     
+    // Check for API key presence
     const hasKey = await window.aistudio?.hasSelectedApiKey();
     if (!hasKey) { 
-      setShowKeyPrompt(true); 
+      setShowKeyPromptOverlay(true); 
       return; 
     }
 
     setIsGeneratingAvatar(true);
-    setShowKeyPrompt(false);
+    setShowKeyPromptOverlay(false);
     
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -160,45 +162,10 @@ const PetProfilePage: React.FC = () => {
         }
       }
     } catch (err: any) {
-      if (err.message?.includes("Requested entity was not found")) setShowKeyPrompt(true);
+      if (err.message?.includes("Requested entity was not found")) {
+        setShowKeyPromptOverlay(true);
+      }
     } finally { setIsGeneratingAvatar(false); }
-  };
-
-  const handleScanClick = () => {
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-      // Logic for mobile scanning would go here
-      alert("Mobile camera scanning initiated...");
-    } else {
-      qrFileInputRef.current?.click();
-    }
-  };
-
-  const handleFileScan = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
-        if (code) {
-          alert(`Successfully identified ID: ${code.data}`);
-        } else {
-          alert("No valid ID code found in the image.");
-        }
-      };
-      img.src = event.target?.result as string;
-    };
-    reader.readAsDataURL(file);
   };
 
   return (
@@ -208,23 +175,19 @@ const PetProfilePage: React.FC = () => {
           <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Companion Registry</h2>
           <p className="text-slate-500 font-medium text-sm">Manage profiles and wellness records for your pets.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <input type="file" ref={qrFileInputRef} className="hidden" accept="image/*" onChange={handleFileScan} />
-          <button onClick={handleScanClick} className="flex items-center gap-2 px-6 py-3.5 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm active:scale-95">
-            <Scan size={18} /> {/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? 'Scan ID' : 'Upload ID'}
-          </button>
-          <button onClick={() => { setStep(1); setIsAdding(true); }} className="flex items-center gap-2 px-6 py-3.5 bg-theme text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-theme-hover transition-all shadow-xl shadow-theme/10 active:scale-95">
-            <Plus size={18} /> Register Companion
-          </button>
-        </div>
+        <button 
+          onClick={() => { setStep(1); setIsAdding(true); }} 
+          className="flex items-center gap-2 px-6 py-3.5 bg-theme text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-theme-hover transition-all shadow-xl shadow-theme/10 active:scale-95"
+        >
+          <Plus size={18} /> Register Companion
+        </button>
       </div>
 
-      {/* Pet Selector Tabs */}
       <div className="flex gap-3 overflow-x-auto pb-4 scroll-hide">
         {pets.map(p => (
           <button 
             key={p.id} 
-            onClick={() => { setSelectedPet(p); setIsAdding(false); setShowKeyPrompt(false); }} 
+            onClick={() => { setSelectedPet(p); setIsAdding(false); setShowKeyPromptOverlay(false); }} 
             className={`flex items-center gap-3 px-5 py-3 rounded-2xl border-2 transition-all shrink-0 ${selectedPet?.id === p.id && !isAdding ? 'bg-theme-light border-theme shadow-sm scale-105' : 'bg-white border-transparent hover:bg-slate-50'}`}
           >
             <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">
@@ -267,113 +230,79 @@ const PetProfilePage: React.FC = () => {
         </div>
       ) : selectedPet ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Profile Card Sidebar */}
           <div className="lg:col-span-1 space-y-8">
             <div className="bg-white rounded-[2.5rem] p-8 border border-slate-50 shadow-xl text-center space-y-6 relative overflow-hidden group">
-              <div className="w-52 h-52 rounded-[3.5rem] overflow-hidden mx-auto shadow-2xl relative border-4 border-white transition-all duration-500 hover:scale-[1.02]">
+              {/* Avatar Square with Integrated Logic */}
+              <div className="w-52 h-52 rounded-[3.5rem] overflow-hidden mx-auto shadow-2xl relative border-4 border-white">
                 {selectedPet.avatarUrl ? (
                   <img src={selectedPet.avatarUrl} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full bg-slate-50 flex items-center justify-center text-slate-200">
-                    <Dog size={64} />
-                  </div>
+                  <div className="w-full h-full bg-slate-50 flex items-center justify-center text-slate-200"><Dog size={64} /></div>
                 )}
                 
-                {/* Generation Overlay */}
+                {/* Generation Loading State */}
                 {isGeneratingAvatar && (
-                  <div className="absolute inset-0 bg-white/40 flex flex-col items-center justify-center backdrop-blur-md">
-                    <Loader2 size={32} className="animate-spin text-theme mb-2" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-theme">Designing...</span>
+                  <div className="absolute inset-0 bg-white/40 flex items-center justify-center backdrop-blur-md">
+                    <Loader2 size={32} className="animate-spin text-theme" />
                   </div>
                 )}
 
-                {/* API Key Modal-Style Overlay (Matches Screenshot but stable) */}
-                {showKeyPrompt && (
-                  <div className="absolute inset-0 bg-indigo-600/90 text-white flex flex-col items-center justify-center p-6 text-center animate-in zoom-in-95 duration-300 z-10">
+                {/* Integrated Key Requirement Overlay (Screenshot 2 Match) */}
+                {showKeyPromptOverlay && (
+                  <div className="absolute inset-0 bg-indigo-600/90 text-white flex flex-col items-center justify-center p-6 text-center animate-in zoom-in duration-300">
                     <Key size={32} className="mb-3 text-theme shadow-sm" />
-                    <h5 className="text-[10px] font-black uppercase tracking-[0.2em] mb-2">Connect Paid Key</h5>
-                    <p className="text-[9px] font-medium leading-relaxed mb-5 opacity-90">To generate high-quality AI avatars, please connect your Google Cloud API key.</p>
+                    <h5 className="text-[10px] font-black uppercase tracking-widest mb-2">Connect Paid Key</h5>
+                    <p className="text-[9px] font-medium leading-relaxed mb-4 opacity-90">Requires a Google Cloud project key to unlock pro avatars.</p>
                     <button 
-                      onClick={() => { window.aistudio?.openSelectKey(); setShowKeyPrompt(false); }}
-                      className="w-full bg-white text-indigo-600 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg hover:bg-slate-50 transition-all active:scale-95"
+                      onClick={() => { window.aistudio?.openSelectKey(); setShowKeyPromptOverlay(false); }}
+                      className="bg-white text-indigo-600 px-4 py-2 rounded-lg font-black text-[9px] uppercase tracking-widest shadow-lg active:scale-95 transition-all mb-2"
                     >
                       Connect Key
                     </button>
-                    <button onClick={() => setShowKeyPrompt(false)} className="mt-4 text-[8px] font-bold opacity-50 hover:opacity-100 transition-opacity uppercase tracking-widest">Later</button>
+                    <button onClick={() => setShowKeyPromptOverlay(false)} className="text-[8px] font-bold opacity-50 hover:opacity-100 transition-opacity">Dismiss</button>
                   </div>
                 )}
               </div>
 
-              {/* Action Buttons */}
               <div className="flex gap-2 justify-center">
-                <button 
-                  onClick={() => fileInputRef.current?.click()} 
-                  className="p-3.5 bg-white border border-slate-100 rounded-xl hover:bg-slate-50 shadow-sm text-slate-500 transition-all hover:text-theme"
-                  title="Upload Reference Photo"
-                >
-                  <Camera size={20} />
-                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onloadend = () => generateAIAvatar(reader.result as string);
-                      reader.readAsDataURL(file);
-                    }
-                  }} />
-                </button>
+                <button onClick={() => fileInputRef.current?.click()} className="p-3 bg-white border border-slate-100 rounded-xl hover:bg-slate-50 shadow-sm text-slate-500"><Camera size={20} /><input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => generateAIAvatar(reader.result as string);
+                    reader.readAsDataURL(file);
+                  }
+                }} /></button>
                 <button 
                   onClick={() => generateAIAvatar()} 
                   disabled={isGeneratingAvatar} 
-                  className={`p-3.5 rounded-xl shadow-lg transition-all ${showKeyPrompt ? 'bg-rose-500 text-white' : 'bg-slate-900 text-theme hover:bg-black'}`}
-                  title="Generate Pro AI Avatar"
+                  className={`p-3 rounded-xl shadow-lg transition-all ${showKeyPromptOverlay ? 'bg-rose-500 text-white' : 'bg-slate-900 text-theme hover:bg-black'}`}
                 >
                   <Wand2 size={20} />
                 </button>
               </div>
 
-              <div className="space-y-1 pb-4">
+              <div className="space-y-1">
                 <h3 className="text-4xl font-black text-slate-900 tracking-tighter">{selectedPet.name}</h3>
                 <p className="text-[10px] font-black text-theme uppercase tracking-[0.2em]">{selectedPet.breed} · {selectedPet.species}</p>
-                <div className="inline-block mt-4 px-3 py-1 bg-slate-50 rounded-full border border-slate-100 text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  ID: {selectedPet.id}
-                </div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2">ID: {selectedPet.id}</p>
               </div>
             </div>
           </div>
-
-          {/* Main Profile Content */}
           <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 border border-slate-50 shadow-sm min-h-[400px]">
              <div className="flex items-center gap-4 mb-8">
-               <div className="p-3 bg-slate-900 text-theme rounded-xl shadow-md"><Brain size={24} /></div>
-               <div>
-                 <h4 className="font-black text-xl text-slate-900 leading-none">Health Intelligence</h4>
-                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Medical records & AI Insights</p>
-               </div>
+               <div className="p-3 bg-slate-900 text-theme rounded-xl"><Brain size={24} /></div>
+               <h4 className="font-black text-xl text-slate-900">Health Intelligence</h4>
              </div>
-             <div className="flex flex-col items-center justify-center py-24 text-center">
-                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-6 text-slate-200">
-                  <Stethoscope size={32} />
-                </div>
-                <p className="text-slate-300 font-black uppercase tracking-[0.3em] text-[10px]">No medical logs recorded for {selectedPet.name}</p>
-                <button className="mt-6 text-theme font-black text-[10px] uppercase tracking-widest hover:underline">+ Add First Record</button>
-             </div>
+             <div className="py-20 text-center text-slate-300 font-black uppercase tracking-[0.4em] text-[10px]">No medical logs recorded</div>
           </div>
         </div>
       ) : (
-        <div className="py-40 text-center animate-in zoom-in-95 duration-500">
-          <div className="bg-slate-50 w-24 h-24 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 text-slate-200 shadow-inner">
-            <Dog size={48} />
-          </div>
+        <div className="py-40 text-center animate-in zoom-in duration-500">
+          <div className="bg-slate-50 w-24 h-24 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 text-slate-200 shadow-inner"><Dog size={48} /></div>
           <h3 className="text-3xl font-black text-slate-900 mb-4 tracking-tighter">Companion Network Offline</h3>
-          <p className="text-slate-500 font-medium mb-10 max-w-sm mx-auto text-sm leading-relaxed">
-            Register your first companion to unlock AI health tracking and community discovery.
-          </p>
-          <button 
-            onClick={() => { setStep(1); setIsAdding(true); }} 
-            className="bg-slate-900 text-white px-10 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-2xl shadow-slate-200 active:scale-95"
-          >
-            Start Registration
-          </button>
+          <p className="text-slate-500 font-medium mb-10 max-w-sm mx-auto text-sm leading-relaxed">Register your first companion to unlock AI health tracking and community discovery.</p>
+          <button onClick={() => { setStep(1); setIsAdding(true); }} className="bg-slate-900 text-white px-10 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-2xl shadow-slate-200">Start Registration</button>
         </div>
       )}
     </div>

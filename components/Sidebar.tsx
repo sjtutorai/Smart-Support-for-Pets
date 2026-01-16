@@ -90,8 +90,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
         {/* Header/Logo Area */}
         <div className="h-24 flex items-center px-6 shrink-0 border-b border-slate-50">
           <Link to={AppRoutes.HOME} className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white border border-slate-100 rounded-xl p-1 flex items-center justify-center shrink-0 shadow-sm">
-              <img src={LOGO_URL} alt="Logo" className="w-full h-full object-contain" />
+            <div className="w-10 h-10 bg-theme rounded-xl p-1 flex items-center justify-center shrink-0">
+              <img src={LOGO_URL} alt="Logo" className="w-full h-full object-contain brightness-0 invert" />
             </div>
             {!isCollapsed && (
               <span className="font-black text-slate-900 tracking-tighter text-xl truncate animate-in fade-in slide-in-from-left-2">
