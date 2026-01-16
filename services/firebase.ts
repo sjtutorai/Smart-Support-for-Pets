@@ -44,6 +44,11 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
+/**
+ * Checks if a username is taken. 
+ * If Firestore permissions block unauthenticated reads, it defaults to false 
+ * to allow the user to proceed with account creation.
+ */
 export const isUsernameTaken = async (username: string, excludeUid: string) => {
   if (!username) return false;
   try {
@@ -55,9 +60,9 @@ export const isUsernameTaken = async (username: string, excludeUid: string) => {
     const querySnapshot = await getDocs(q);
     if (querySnapshot.empty) return false;
     return querySnapshot.docs[0].id !== excludeUid;
-  } catch (err) {
-    console.warn("Username check failed, proceeding:", err);
-    return false; // Fail safe to allow registration if query fails
+  } catch (err: any) {
+    console.warn("Username availability check skipped (likely permissions):", err.message);
+    return false; 
   }
 };
 
@@ -201,36 +206,46 @@ export const logout = () => signOut(auth);
 
 export const loginWithIdentifier = async (identifier: string, password: string) => {
   let email = identifier.trim();
+  
+  // If no @, assume it's a username and try to find the email
   if (!identifier.includes('@')) {
-    const q = query(collection(db, "users"), where("username", "==", identifier.toLowerCase().trim()), limit(1));
-    const querySnapshot = await getDocs(q);
-    if (querySnapshot.empty) {
-      return (await signInWithEmailAndPassword(auth, identifier, password)).user;
+    try {
+      const q = query(collection(db, "users"), where("username", "==", identifier.toLowerCase().trim()), limit(1));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        const userData = querySnapshot.docs[0].data();
+        if (userData.email) email = userData.email;
+      }
+    } catch (err) {
+      console.warn("Username lookup failed (permissions?), attempting direct login with identifier as email.");
     }
-    const userData = querySnapshot.docs[0].data();
-    if (!userData.email) throw { code: 'auth/invalid-credential' };
-    email = userData.email;
   }
+  
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
   await syncUserToDb(userCredential.user);
   return userCredential.user;
 };
 
 export const signUpWithEmail = async (email: string, password: string, fullName: string, username: string) => {
+  // 1. Check if username is taken
   const isTaken = await isUsernameTaken(username, '');
   if (isTaken) throw { code: 'auth/username-already-in-use' };
   
-  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  // 2. Create the user
+  const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
   const user = userCredential.user;
   
+  // 3. Update profile
   await updateProfile(user, { displayName: fullName });
   
+  // 4. Send verification
   try {
     await sendEmailVerification(user);
   } catch (e) {
-    console.warn("Verification email failed to send, proceeding with registration.", e);
+    console.warn("Verification email could not be sent:", e);
   }
   
+  // 5. Sync to database
   await syncUserToDb(user, {
     displayName: fullName,
     username: username.toLowerCase().trim(),

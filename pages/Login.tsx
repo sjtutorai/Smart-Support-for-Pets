@@ -36,6 +36,7 @@ const Login: React.FC = () => {
   });
 
   useEffect(() => {
+    // If user is logged in and verified, send to dashboard
     if (!loading && user && user.emailVerified) {
       navigate('/', { replace: true });
     }
@@ -50,16 +51,22 @@ const Login: React.FC = () => {
 
   const formatFirebaseError = (err: any) => {
     const code = err.code || '';
-    console.error("Auth Error:", code, err);
-    if (code === 'auth/popup-blocked') return "Sign-in popup was blocked.";
-    if (code === 'auth/popup-closed-by-user') return "Sign-in was cancelled.";
-    if (code === 'auth/invalid-credential') return "Incorrect credentials.";
-    if (code === 'auth/email-already-in-use') return "This email is already registered.";
-    if (code === 'auth/weak-password') return "Password must be at least 6 characters.";
-    if (code === 'auth/username-already-in-use') return "This handle is already taken.";
-    if (code === 'auth/invalid-email') return "Please enter a valid email address.";
-    if (code === 'auth/network-request-failed') return "Network error. Please check your connection.";
-    return err.message || "An unexpected error occurred.";
+    console.error("Auth Exception:", code, err);
+    
+    switch (code) {
+      case 'auth/popup-blocked': return "Sign-in popup was blocked by your browser.";
+      case 'auth/popup-closed-by-user': return "Sign-in was cancelled.";
+      case 'auth/invalid-credential': return "The email or password you entered is incorrect.";
+      case 'auth/user-not-found': return "No account exists with this email.";
+      case 'auth/wrong-password': return "Incorrect password.";
+      case 'auth/email-already-in-use': return "This email is already registered.";
+      case 'auth/weak-password': return "Password must be at least 6 characters.";
+      case 'auth/username-already-in-use': return "This handle is already taken.";
+      case 'auth/invalid-email': return "Please enter a valid email address.";
+      case 'auth/network-request-failed': return "Connection lost. Please check your internet.";
+      case 'auth/too-many-requests': return "Access disabled due to many failed attempts. Try later.";
+      default: return err.message || "An unexpected error occurred during authentication.";
+    }
   };
 
   const handleGoogleLogin = async () => {
@@ -89,7 +96,7 @@ const Login: React.FC = () => {
     setError('');
     try {
       await resendVerificationEmail();
-      setSuccessMessage("Verification link sent! Please check your inbox.");
+      setSuccessMessage("Success! A new verification link has been sent.");
     } catch (err: any) {
       setError(formatFirebaseError(err));
     } finally {
@@ -97,22 +104,22 @@ const Login: React.FC = () => {
     }
   };
 
-  const validateForm = () => {
+  const validate = () => {
     if (!isLogin) {
       if (!agreedToTerms) {
-        setError("Please agree to the Terms and Privacy Policy.");
+        setError("You must agree to the Terms and Privacy Policy.");
         return false;
       }
       if (formData.password !== formData.confirmPassword) {
         setError("Passwords do not match.");
         return false;
       }
-      if (!formData.identifier.includes('@')) {
-        setError("Please enter a valid email address for account creation.");
+      if (formData.password.length < 6) {
+        setError("Password must be at least 6 characters.");
         return false;
       }
-      if (formData.username.length < 3) {
-        setError("Handle must be at least 3 characters.");
+      if (!formData.identifier.includes('@')) {
+        setError("Please enter a valid email address.");
         return false;
       }
     }
@@ -127,7 +134,7 @@ const Login: React.FC = () => {
     setSuccessMessage('');
     setVerificationNeeded(false);
 
-    if (!validateForm()) return;
+    if (!validate()) return;
 
     setIsLoading(true);
 
@@ -136,7 +143,7 @@ const Login: React.FC = () => {
         const loggedUser = await loginWithIdentifier(formData.identifier, formData.password);
         if (!loggedUser.emailVerified) {
           setVerificationNeeded(true);
-          setError("Email not verified. Please check your inbox.");
+          setError("Your email isn't verified yet.");
         } else {
           navigate('/', { replace: true });
         }
@@ -147,8 +154,9 @@ const Login: React.FC = () => {
           formData.fullName, 
           formData.username
         );
-        setSuccessMessage("Account created! We've sent a link to your email.");
-        setIsLogin(true);
+        setSuccessMessage("Registration successful! Verify your email to continue.");
+        setVerificationNeeded(true);
+        setIsLogin(true); // Switch to login view after successful signup
       }
     } catch (err: any) {
       setError(formatFirebaseError(err));
@@ -176,7 +184,7 @@ const Login: React.FC = () => {
           <p className="text-slate-400 text-xs mt-2 font-black uppercase tracking-[0.2em]">SS Paw Pal Hub</p>
         </div>
 
-        {error && !verificationNeeded && (
+        {error && (
           <div className="mb-6 p-4 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl text-xs font-black flex items-start gap-3 animate-in slide-in-from-top-2">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{error}</span>
@@ -197,7 +205,7 @@ const Login: React.FC = () => {
               <h3 className="font-black text-sm uppercase tracking-tight">Verify Your Identity</h3>
             </div>
             <p className="text-xs text-indigo-600/80 font-medium leading-relaxed">
-              Check your inbox for a magic link to activate your portal.
+              We've sent a magic link to your email. Please click it to activate your companion portal.
             </p>
             <button 
               onClick={handleResend}
