@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
@@ -88,7 +87,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
       `}>
         
         {/* Branding Section */}
-        <div className="h-28 flex items-center px-6 shrink-0 relative">
+        <div className="h-28 flex items-center px-6 shrink-0 relative border-b border-slate-100/50">
           <Link 
             to={AppRoutes.HOME}
             className={`flex items-center gap-4 transition-all duration-500 ${isCollapsed && !isOpen ? 'justify-center w-full' : ''}`}
@@ -119,7 +118,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
         </div>
 
         {/* Scrollable Nav Area */}
-        <nav className="flex-1 px-4 py-6 space-y-10 overflow-y-auto custom-scrollbar-hide">
+        <nav className="flex-1 px-4 py-8 space-y-10 overflow-y-auto custom-scrollbar-hide">
           {menuGroups.map((group, gIdx) => (
             <div key={gIdx} className="space-y-3">
               {(!isCollapsed || isOpen) && (
@@ -136,18 +135,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
                       key={item.path}
                       to={item.path}
                       onClick={() => setIsOpen(false)}
-                      style={isActive ? { backgroundColor: 'var(--theme-surface)' } : {}}
                       className={`
                         group relative flex items-center gap-4 px-6 py-4 rounded-full transition-all duration-300 overflow-hidden
                         ${isActive 
-                          ? 'text-white shadow-xl' 
+                          ? 'bg-theme text-white shadow-xl shadow-theme/20' 
                           : 'text-slate-500 hover:bg-theme-light hover:text-theme'}
                         ${isCollapsed && !isOpen ? 'md:justify-center px-0' : ''}
                       `}
                     >
-                      {/* Active Indicator Bar - Refined to match screenshot stripe */}
+                      {/* Active Indicator Bar */}
                       {isActive && (
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[5px] h-7 bg-theme rounded-r-full shadow-[0_0_10px_var(--theme-color)]" />
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[5px] h-7 bg-white rounded-r-full shadow-lg" />
                       )}
 
                       <item.icon size={22} className={`flex-shrink-0 transition-all duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110 group-hover:rotate-3'}`} />
@@ -156,14 +154,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
                         <span className="text-[15px] font-bold tracking-tight whitespace-nowrap">{item.label}</span>
                       ) : (
                         <div 
-                          style={{ backgroundColor: 'var(--theme-surface)' }}
-                          className="absolute left-full ml-6 px-4 py-2 text-white text-[11px] font-black uppercase tracking-widest rounded-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-all z-[100] translate-x-[-15px] group-hover:translate-x-0 whitespace-nowrap shadow-2xl"
+                          className="absolute left-full ml-6 px-4 py-2 bg-slate-900 text-white text-[11px] font-black uppercase tracking-widest rounded-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-all z-[100] translate-x-[-15px] group-hover:translate-x-0 whitespace-nowrap shadow-2xl"
                         >
                           {item.label}
-                          <div 
-                            style={{ backgroundColor: 'var(--theme-surface)' }}
-                            className="absolute top-1/2 -left-1.5 -translate-y-1/2 w-3 h-3 rotate-45" 
-                          />
+                          <div className="absolute top-1/2 -left-1.5 -translate-y-1/2 w-3 h-3 rotate-45 bg-slate-900" />
                         </div>
                       )}
                     </Link>
@@ -176,7 +170,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
 
         {/* User Identity Footprint */}
         <div className="p-4 mt-auto">
-          <div className="bg-slate-50/50 border border-slate-100 rounded-[2.5rem] p-2 space-y-1 transition-all duration-500 overflow-hidden">
+          <div className="bg-slate-50/80 border border-slate-100 rounded-[2.5rem] p-2 space-y-1 transition-all duration-500 overflow-hidden">
             <Link 
               to={AppRoutes.SETTINGS}
               className={`flex items-center gap-3 p-2 rounded-full transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 group
