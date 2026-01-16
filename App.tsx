@@ -154,7 +154,7 @@ const PetProfilePage: React.FC = () => {
   const generateAIAvatar = async (base64Source?: string) => {
     if (!selectedPet) return;
     
-    // We switch to gemini-2.5-flash-image which is faster and doesn't require mandatory key selection prompts in AI Studio
+    // Switch to gemini-2.5-flash-image to avoid the mandatory 'Connect Paid Key' dialog required for Gemini 3 Pro.
     setIsGeneratingAvatar(true);
     setShowKeyPrompt(false);
     
@@ -201,11 +201,11 @@ const PetProfilePage: React.FC = () => {
       }
     } catch (err: any) {
       console.error("Avatar error:", err);
-      // If the platform specifically requires key selection, we show the prompt
+      // Only show key selection prompt if the specific error occurs
       if (err.message?.includes("Requested entity was not found") && window.aistudio) {
         setShowKeyPrompt(true);
       } else {
-        addNotification('Studio Busy', 'AI engine is processing many requests. Try again in a moment.', 'info');
+        addNotification('Studio Busy', 'AI engine is processing requests. Try again shortly.', 'info');
       }
     } finally { 
       setIsGeneratingAvatar(false); 
