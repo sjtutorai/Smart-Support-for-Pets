@@ -14,7 +14,7 @@ import {
   Heart, Fish, Bug, Thermometer, Droplets, Calendar, LineChart, Syringe, TrendingUp,
   Sparkles, Info, Quote, Upload, Loader2, Wand2, QrCode, Scan, X, ExternalLink, Save,
   Key, ShieldCheck, Globe, User as UserIconLucide, Brain, RefreshCcw, Image as ImageIcon,
-  Send, UserPlus, Info as InfoIcon
+  Send, UserPlus, Info as InfoIcon, Hash, ArrowRight
 } from 'lucide-react';
 
 // Lazy load pages for performance
@@ -228,6 +228,8 @@ const PetProfilePage: React.FC = () => {
   const [isGeneratingHealthReport, setIsGeneratingHealthReport] = useState(false);
   const [healthReport, setHealthReport] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [isManualInputMode, setIsManualInputMode] = useState(false);
+  const [manualIdInput, setManualIdInput] = useState('');
   const [scannedPet, setScannedPet] = useState<any>(null);
   const [isNotifying, setIsNotifying] = useState(false);
   const [notificationSent, setNotificationSent] = useState(false);
@@ -288,15 +290,7 @@ const PetProfilePage: React.FC = () => {
           if (imageData) {
             const code = jsQR(imageData.data, imageData.width, imageData.height);
             if (code) {
-              const url = code.data;
-              // Extract pet ID from URL format: /v/ID-STRING
-              const match = url.match(/\/v\/([a-zA-Z0-9-]+)/);
-              if (match && match[1]) {
-                identifyPet(match[1]);
-              } else {
-                // Try treating the whole decoded data as ID if no URL structure
-                identifyPet(url);
-              }
+              identifyPet(code.data);
             } else {
               alert("No QR code detected in this image. Please ensure it is clear.");
             }
@@ -308,18 +302,30 @@ const PetProfilePage: React.FC = () => {
     }
   };
 
-  const identifyPet = async (petId: string) => {
-    if (!petId) return;
-    const normalizedId = petId.trim().toUpperCase();
+  const identifyPet = async (petIdOrUrl: string) => {
+    if (!petIdOrUrl) return;
+    
+    // Extract ID if a full URL was pasted/scanned
+    // Example: /#/v/UP20230101-ABCD
+    let normalizedId = petIdOrUrl.trim();
+    const match = normalizedId.match(/\/v\/([a-zA-Z0-9-]+)/);
+    if (match && match[1]) {
+      normalizedId = match[1];
+    }
+    
+    normalizedId = normalizedId.toUpperCase();
 
     setIsScanning(true);
+    setIsNotifying(true); // Re-use loading state visual
     setScannedPet(null);
     setNotificationSent(false);
     setPermissionRequested(false);
+    
     try {
       const petData = await getPetById(normalizedId);
       if (petData) {
         setScannedPet(petData);
+        setIsManualInputMode(false);
         // Automatically send a "scan detected" message to the owner
         await sendFoundPetNotification(petData, user?.displayName || "A Concerned Pet Parent", user?.uid);
       } else {
@@ -328,6 +334,8 @@ const PetProfilePage: React.FC = () => {
     } catch (err) {
       console.error(err);
       alert("Database lookup failed. Check your internet.");
+    } finally {
+      setIsNotifying(false);
     }
   };
 
@@ -508,7 +516,7 @@ const PetProfilePage: React.FC = () => {
           <div className="bg-white rounded-[3.5rem] p-10 max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden relative">
             <div className="flex items-center justify-between mb-8">
               <h3 className="text-2xl font-black text-slate-800 tracking-tight">Identify SSP Tag</h3>
-              <button onClick={() => { setIsScanning(false); setScannedPet(null); }} className="p-2 text-slate-400 hover:text-slate-600"><X size={24} /></button>
+              <button onClick={() => { setIsScanning(false); setScannedPet(null); setIsManualInputMode(false); setManualIdInput(''); }} className="p-2 text-slate-400 hover:text-slate-600"><X size={24} /></button>
             </div>
 
             {scannedPet ? (
@@ -566,6 +574,44 @@ const PetProfilePage: React.FC = () => {
                   </button>
                 </div>
               </div>
+            ) : isManualInputMode ? (
+              <div className="space-y-8 animate-in slide-in-from-bottom-4">
+                <div className="space-y-4 text-center">
+                  <div className="w-16 h-16 bg-theme-light text-theme rounded-2xl flex items-center justify-center mx-auto mb-2">
+                    <Hash size={32} />
+                  </div>
+                  <h4 className="text-xl font-black text-slate-800 tracking-tight">Enter Unique ID</h4>
+                  <p className="text-sm text-slate-500 font-medium">Type the SSP-ID found on the physical tag or paste the profile link.</p>
+                </div>
+
+                <div className="space-y-4">
+                  <input 
+                    autoFocus
+                    type="text"
+                    value={manualIdInput}
+                    onChange={(e) => setManualIdInput(e.target.value)}
+                    placeholder="e.g. SY20210515-ABCD"
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-6 text-xl font-black text-slate-800 outline-none ring-theme focus:ring-4 transition-all tracking-wider"
+                  />
+                  
+                  <div className="flex gap-4">
+                    <button 
+                      onClick={() => setIsManualInputMode(false)}
+                      className="flex-1 bg-slate-100 text-slate-500 py-5 rounded-2xl font-black text-xs uppercase tracking-widest"
+                    >
+                      Go Back
+                    </button>
+                    <button 
+                      onClick={() => identifyPet(manualIdInput)}
+                      disabled={!manualIdInput.trim() || isNotifying}
+                      className="flex-[2] bg-theme text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-theme/20 flex items-center justify-center gap-2"
+                    >
+                      {isNotifying ? <Loader2 className="animate-spin" size={18} /> : <ArrowRight size={18} />}
+                      Identify Tag
+                    </button>
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className="space-y-8">
                 {/* Visual Scanner Area */}
@@ -590,7 +636,7 @@ const PetProfilePage: React.FC = () => {
                     <input type="file" ref={qrInputRef} className="hidden" accept="image/*" onChange={handleQRUpload} />
                   </button>
                   <button 
-                    onClick={() => { const id = prompt("Enter SSP Tag ID (Found on the physical tag):"); if(id) identifyPet(id); }}
+                    onClick={() => setIsManualInputMode(true)}
                     className="flex flex-col items-center gap-3 p-8 bg-slate-50 rounded-[2rem] border border-slate-200 hover:border-theme hover:bg-white transition-all group shadow-sm"
                   >
                     <div className="p-3 bg-white rounded-2xl shadow-sm group-hover:scale-110 transition-transform">
