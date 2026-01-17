@@ -36,7 +36,7 @@ export const PET_CATEGORIES = [
   { id: 'other', name: 'Other', icon: Sparkles, species: ['Other'] }
 ];
 
-const AVATAR_STYLES = [
+export const AVATAR_STYLES = [
   { id: 'realistic', name: 'Realistic', icon: Camera, prompt: 'Cinematic, realistic 4K portrait, highly detailed, professional photography' },
   { id: 'cartoon', name: '3D Pixar', icon: Ghost, prompt: 'Cute 3D Pixar-style animation character, vibrant colors, soft lighting, expressive eyes' },
   { id: 'watercolor', name: 'Watercolor', icon: Brush, prompt: 'Beautiful watercolor painting, soft edges, artistic splashes, delicate paper texture' },
@@ -383,7 +383,7 @@ const PetProfilePage: React.FC = () => {
                 </div>
 
                 <div className="flex gap-4">
-                    <button onClick={generateAIAvatar} className="flex-1 bg-slate-900 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-black transition-all flex items-center justify-center gap-3">
+                    <button onClick={() => generateAIAvatar()} className="flex-1 bg-slate-900 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-black transition-all flex items-center justify-center gap-3">
                         <Sparkles size={18} /> Generate Avatar
                     </button>
                     <button onClick={() => setIsStylePickerOpen(false)} className="px-8 bg-slate-100 text-slate-500 py-5 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Cancel</button>
