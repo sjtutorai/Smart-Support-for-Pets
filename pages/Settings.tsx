@@ -11,7 +11,8 @@ import {
   Phone, 
   Palette,
   Plus,
-  Check
+  Check,
+  LayoutDashboard
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -28,6 +29,13 @@ const THEME_PRESETS = [
   { name: 'Sunset', color: '#f97316' },
 ];
 
+const SURFACE_PRESETS = [
+  { name: 'Deep Slate', color: '#0f172a' },
+  { name: 'Charcoal', color: '#334155' },
+  { name: 'Midnight', color: '#1e293b' },
+  { name: 'Deep Indigo', color: '#1e1b4b' },
+];
+
 const Settings: React.FC = () => {
   const { user } = useAuth();
   const { addNotification } = useNotifications();
@@ -37,6 +45,7 @@ const Settings: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('ssp_theme_color') || '#4f46e5');
+  const [currentSurface, setCurrentSurface] = useState(() => localStorage.getItem('ssp_surface_color') || '#334155');
   
   // Username Validation States
   const [isValidatingUsername, setIsValidatingUsername] = useState(false);
@@ -104,6 +113,14 @@ const Settings: React.FC = () => {
     addNotification('Primary Color Updated', 'Branding preferences updated.', 'success');
   };
 
+  const changeSurface = (color: string) => {
+    setCurrentSurface(color);
+    const root = document.documentElement;
+    root.style.setProperty('--theme-surface', color);
+    localStorage.setItem('ssp_surface_color', color);
+    addNotification('Surface Color Updated', 'Interface aesthetic updated.', 'success');
+  };
+
   const handleSaveProfile = async () => {
     if (!user || usernameTakenStatus === 'taken' || isValidatingUsername) return;
     
@@ -147,7 +164,7 @@ const Settings: React.FC = () => {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
         <div className="space-y-2">
-          <div className="inline-flex px-4 py-1.5 bg-theme-light text-theme rounded-full text-xs font-black uppercase tracking-widest mb-2 transition-theme">Account Hub</div>
+          <div className="inline-flex px-4 py-1.5 bg-theme-light text-theme rounded-full text-xs font-black uppercase tracking-widest mb-2 transition-theme">Aesthetic Hub</div>
           <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Profile Settings</h2>
         </div>
         
@@ -300,55 +317,83 @@ const Settings: React.FC = () => {
           </div>
         </div>
 
-        {/* Theme Picker - Primary Color Only */}
-        <div className="bg-white rounded-[3.5rem] p-10 md:p-14 border border-slate-100 shadow-sm space-y-12">
-          <div className="flex items-center gap-5">
-            <div className="p-4 bg-theme-light text-theme rounded-[2rem] transition-theme shadow-sm">
-              <Palette size={28} />
-            </div>
-            <div>
-              <h3 className="text-3xl font-black text-slate-900 tracking-tight">Primary Brand Color</h3>
-              <p className="text-slate-500 font-medium">Customize your primary workspace accent.</p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-6 justify-center md:justify-start">
-            {THEME_PRESETS.map((theme) => (
-              <button
-                key={theme.color}
-                onClick={() => changeTheme(theme.color)}
-                className={`group relative flex flex-col items-center gap-3 p-3 rounded-[2.5rem] transition-all duration-300 ${
-                  currentTheme === theme.color ? 'bg-slate-50 ring-2 ring-slate-100 scale-105 shadow-xl' : 'hover:bg-slate-50'
-                }`}
-              >
-                <div 
-                  className={`w-16 h-16 rounded-[2rem] shadow-lg transition-all duration-500 flex items-center justify-center ${
-                    currentTheme === theme.color ? 'scale-110' : ''
-                  }`}
-                  style={{ backgroundColor: theme.color }}
-                >
-                  {currentTheme === theme.color && <Check size={32} className="text-white animate-in zoom-in" />}
+        {/* Theme Picker Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Primary Theme Picker */}
+            <div className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-sm space-y-12">
+                <div className="flex items-center gap-5">
+                    <div className="p-4 bg-theme-light text-theme rounded-[2rem] transition-theme shadow-sm">
+                        <Palette size={28} />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-black text-slate-900 tracking-tight leading-tight">Brand Highlight</h3>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Primary UI Accents</p>
+                    </div>
                 </div>
-                <span className={`text-[10px] font-black uppercase tracking-widest ${
-                  currentTheme === theme.color ? 'text-theme' : 'text-slate-400'
-                }`}>
-                  {theme.name}
-                </span>
-              </button>
-            ))}
-            
-            <label className="group relative flex flex-col items-center gap-3 p-3 rounded-[2.5rem] hover:bg-slate-50 cursor-pointer transition-all">
-              <div className="w-16 h-16 rounded-[2rem] shadow-lg bg-gradient-to-tr from-rose-500 via-indigo-500 to-emerald-500 flex items-center justify-center transition-all group-hover:rotate-12">
-                <Plus size={32} className="text-white" />
-              </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Custom</span>
-              <input 
-                type="color" 
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                onChange={(e) => changeTheme(e.target.value)}
-              />
-            </label>
-          </div>
+
+                <div className="flex flex-wrap gap-4">
+                    {THEME_PRESETS.map((theme) => (
+                    <button
+                        key={theme.color}
+                        onClick={() => changeTheme(theme.color)}
+                        className={`group relative flex flex-col items-center gap-2 p-2 rounded-[2rem] transition-all duration-300 ${
+                        currentTheme === theme.color ? 'bg-slate-50 ring-2 ring-slate-100 scale-105' : 'hover:bg-slate-50'
+                        }`}
+                    >
+                        <div 
+                        className={`w-12 h-12 rounded-[1.25rem] shadow-lg transition-all duration-500 flex items-center justify-center`}
+                        style={{ backgroundColor: theme.color }}
+                        >
+                        {currentTheme === theme.color && <Check size={24} className="text-white animate-in zoom-in" />}
+                        </div>
+                    </button>
+                    ))}
+                    <label className="group relative flex flex-col items-center gap-3 p-2 rounded-[2.5rem] hover:bg-slate-50 cursor-pointer transition-all">
+                        <div className="w-12 h-12 rounded-[1.25rem] shadow-lg bg-gradient-to-tr from-rose-500 via-indigo-500 to-emerald-500 flex items-center justify-center transition-all group-hover:rotate-12">
+                            <Plus size={24} className="text-white" />
+                        </div>
+                        <input type="color" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => changeTheme(e.target.value)} />
+                    </label>
+                </div>
+            </div>
+
+            {/* Surface Theme Picker */}
+            <div className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-sm space-y-12">
+                <div className="flex items-center gap-5">
+                    <div className="p-4 bg-slate-900 text-white rounded-[2rem] transition-theme shadow-sm">
+                        <LayoutDashboard size={28} />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-black text-slate-900 tracking-tight leading-tight">Surface Aesthetic</h3>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sidebar & Layout Base</p>
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap gap-4">
+                    {SURFACE_PRESETS.map((surf) => (
+                    <button
+                        key={surf.color}
+                        onClick={() => changeSurface(surf.color)}
+                        className={`group relative flex flex-col items-center gap-2 p-2 rounded-[2rem] transition-all duration-300 ${
+                        currentSurface === surf.color ? 'bg-slate-50 ring-2 ring-slate-100 scale-105' : 'hover:bg-slate-50'
+                        }`}
+                    >
+                        <div 
+                        className={`w-12 h-12 rounded-[1.25rem] shadow-lg transition-all duration-500 flex items-center justify-center`}
+                        style={{ backgroundColor: surf.color }}
+                        >
+                        {currentSurface === surf.color && <Check size={24} className="text-white animate-in zoom-in" />}
+                        </div>
+                    </button>
+                    ))}
+                    <label className="group relative flex flex-col items-center gap-3 p-2 rounded-[2.5rem] hover:bg-slate-50 cursor-pointer transition-all">
+                        <div className="w-12 h-12 rounded-[1.25rem] shadow-lg bg-slate-200 flex items-center justify-center transition-all group-hover:rotate-12">
+                            <Plus size={24} className="text-slate-400" />
+                        </div>
+                        <input type="color" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => changeSurface(e.target.value)} />
+                    </label>
+                </div>
+            </div>
         </div>
       </div>
     </div>
