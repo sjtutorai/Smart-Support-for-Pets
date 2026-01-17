@@ -84,7 +84,6 @@ export const syncUserToDb = async (user: FirebaseUser, extraData: any = {}) => {
   }
 };
 
-// Added missing updateUserProfile to resolve error in Settings.tsx
 export const updateUserProfile = async (uid: string, data: any) => {
   const userRef = doc(db, "users", uid);
   const updateData = {
@@ -97,7 +96,6 @@ export const updateUserProfile = async (uid: string, data: any) => {
   await setDoc(userRef, updateData, { merge: true });
 };
 
-// Added missing resendVerificationEmail to resolve error in Login.tsx
 export const resendVerificationEmail = async () => {
   if (auth.currentUser) {
     await sendEmailVerification(auth.currentUser);
@@ -111,6 +109,11 @@ export const syncPetToDb = async (pet: any) => {
     lowercaseName: pet.name?.toLowerCase() || '',
     updatedAt: serverTimestamp()
   }, { merge: true });
+};
+
+export const deletePet = async (petId: string) => {
+  if (!petId) return;
+  await deleteDoc(doc(db, "pets", petId));
 };
 
 export const getPetById = async (id: string) => {
