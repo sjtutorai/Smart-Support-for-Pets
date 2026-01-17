@@ -1,5 +1,6 @@
 
-// Use standard Firebase modular SDK imports
+// Fix: Use standard modular imports from Firebase v9+. 
+// If the environment fails to resolve named exports, ensuring they are cleanly listed helps.
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
@@ -35,6 +36,7 @@ import {
   documentId
 } from 'firebase/firestore';
 import type { QueryDocumentSnapshot } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import { User as AppUser, PetProfile, FollowStatus } from '../types';
 
 const firebaseConfig = {
@@ -50,6 +52,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const storage = getStorage(app);
 
 // Check if username is already in use
 export const isUsernameTaken = async (username: string, excludeUid: string) => {

@@ -19,6 +19,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { db, updateUserProfile, isUsernameTaken } from '../services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import UploadProfilePicture from '../components/UploadProfilePicture';
 
 const THEME_PRESETS = [
   { name: 'Indigo', color: '#4f46e5' },
@@ -187,29 +188,15 @@ const Settings: React.FC = () => {
         <div className="bg-white rounded-[4rem] p-10 md:p-20 border border-slate-50 shadow-2xl space-y-16 relative overflow-hidden transition-all duration-700">
           <div className="flex flex-col lg:flex-row items-center justify-center lg:items-start gap-16 lg:gap-24">
             
-            {/* Avatar Area */}
-            <div className="relative group shrink-0">
-              <div className="w-56 h-56 rounded-[3.5rem] bg-theme-light flex flex-col items-center justify-center overflow-hidden border-4 border-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] transition-all duration-500 group-hover:scale-105">
-                {user?.photoURL ? (
-                  <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <UserIcon size={96} className="text-theme opacity-20" />
-                )}
-                <div className="mt-2 text-center">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-theme/60">@{dbUser?.username || 'user'}</p>
-                </div>
-                {isEditing && (
-                  <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                    <Edit3 size={32} className="text-white" />
-                  </div>
-                )}
-              </div>
-              {!isEditing && (
+            {/* Identity & Upload Area */}
+            <div className="w-full lg:w-72 space-y-8 shrink-0">
+               <UploadProfilePicture />
+               {!isEditing && (
                 <button 
                   onClick={() => setIsEditing(true)}
-                  className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-white px-8 py-3 rounded-full shadow-xl border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-theme transition-all whitespace-nowrap active:scale-95"
+                  className="w-full bg-theme text-white px-8 py-4 rounded-2xl shadow-xl font-black uppercase text-xs tracking-widest hover:bg-theme-hover transition-all active:scale-95"
                 >
-                  Edit Profile
+                  Edit Information
                 </button>
               )}
             </div>
