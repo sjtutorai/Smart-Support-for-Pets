@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Heart, Share2, Image as ImageIcon, Search, Filter, X, 
@@ -10,7 +9,6 @@ import { db, getPetsByOwnerId, getAllUsers } from '../services/firebase';
 import { 
   collection, addDoc, query, orderBy, onSnapshot, serverTimestamp 
 } from 'firebase/firestore';
-import { GoogleGenAI } from "@google/genai";
 import { PetProfile, Post, User, AppRoutes } from '../types';
 import { Link, useNavigate } from 'react-router-dom';
 import FollowButton from '../components/FollowButton';
@@ -64,7 +62,6 @@ const Community: React.FC = () => {
     };
     const fetchSuggested = async () => {
       try {
-        // Optimized: Fetch only 12 users instead of the entire directory
         const batch = await getAllUsers(12);
         const filtered = batch.filter(u => u.uid !== user?.uid).slice(0, 8);
         setSuggestedUsers(filtered);
@@ -95,18 +92,29 @@ const Community: React.FC = () => {
     setIsPosting(true);
     try {
       await addDoc(collection(db, "posts"), {
-        user: user.displayName || 'Guardian', avatar: user.photoURL || null,
-        petName: pet?.name || 'Companion', petType: pet?.species || 'Other', petSpecies: pet?.petSpecies || 'Other',
-        content: newPostContent.trim(), image: selectedImage || '',
-        likes: 0, comments: 0, createdAt: serverTimestamp(), userId: user.uid
+        user: user.displayName || 'Guardian', 
+        avatar: user.photoURL || null,
+        petName: pet?.name || 'Companion', 
+        petType: pet?.species || 'Other', 
+        petSpecies: pet?.petSpecies || 'Other',
+        content: newPostContent.trim(), 
+        image: selectedImage || '',
+        likes: 0, 
+        comments: 0, 
+        createdAt: serverTimestamp(), 
+        userId: user.uid
       });
-      setNewPostContent(''); setSelectedImage(null);
+      setNewPostContent(''); 
+      setSelectedImage(null);
       addNotification('Moment Shared', 'Your pet story is live!', 'success');
-    } catch (e) { addNotification('Post Error', 'Could not save moment.', 'error'); } 
-    finally { setIsPosting(false); }
+    } catch (e) { 
+      console.error(e);
+      addNotification('Post Error', 'Could not save moment.', 'error'); 
+    } finally { 
+      setIsPosting(false); 
+    }
   };
 
-  // Filter posts by search query and species category
   const filteredPosts = useMemo(() => {
     const queryTerm = searchQuery.toLowerCase();
     return posts.filter(p => {
@@ -128,7 +136,6 @@ const Community: React.FC = () => {
         </select>
       </div>
 
-      {/* Suggested Guardians Section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
             <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Discover Guardians</h4>
@@ -158,7 +165,6 @@ const Community: React.FC = () => {
         </div>
       </div>
 
-      {/* Post creation area */}
       <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm space-y-6">
         <div className="flex items-center gap-3">
            <div className="w-10 h-10 rounded-xl bg-slate-100 border overflow-hidden">
@@ -179,7 +185,6 @@ const Community: React.FC = () => {
         </div>
       </div>
 
-      {/* Post feed list */}
       <div className="space-y-8 mt-12">
         {loading ? <div className="text-center py-20"><Loader2 size={32} className="animate-spin text-slate-200 mx-auto" /></div>
          : filteredPosts.length === 0 ? (

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Loader2, User as UserIcon, AtSign, Users, ArrowRight, ChevronDown } from 'lucide-react';
 import { getUsersPaginated } from '../services/firebase';
@@ -17,12 +16,10 @@ const FindFriends: React.FC = () => {
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
   const [hasMore, setHasMore] = useState(true);
 
-  // Initial fetch on mount
   useEffect(() => {
     fetchInitialUsers();
   }, []);
 
-  // Retrieve first page of users from Firestore
   const fetchInitialUsers = async () => {
     setIsLoading(true);
     try {
@@ -37,7 +34,6 @@ const FindFriends: React.FC = () => {
     }
   };
 
-  // Retrieve next page of users using the cursor
   const loadMoreUsers = async () => {
     if (isLoadingMore || !hasMore) return;
     setIsLoadingMore(true);
@@ -53,7 +49,6 @@ const FindFriends: React.FC = () => {
     }
   };
 
-  // Search through currently loaded users in local state
   const filteredUsers = useMemo(() => {
     const query = searchText.toLowerCase().trim();
     if (!query) return users;

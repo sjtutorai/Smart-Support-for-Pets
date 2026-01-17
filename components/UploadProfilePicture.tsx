@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db, storage, onAuthStateChanged } from '../services/firebase';
 import { Camera, Loader2, CheckCircle2, AlertCircle, UploadCloud } from 'lucide-react';
 
@@ -17,10 +16,15 @@ const UploadProfilePicture: React.FC = () => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-          setProfilePicture(userDocSnap.data().profilePictureUrl || userDocSnap.data().photoURL || '');
+        try {
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            const data = userDocSnap.data();
+            setProfilePicture(data?.profilePictureUrl || data?.photoURL || '');
+          }
+        } catch (err) {
+          console.error("Error fetching user doc:", err);
         }
       }
     });
@@ -42,7 +46,7 @@ const UploadProfilePicture: React.FC = () => {
     setError(null);
     setSuccess(null);
 
-    const fileExtension = file.name.split('.').pop();
+    const fileExtension = file.name.split('.').pop() || 'png';
     const storageRef = ref(storage, `profilePictures/${user.uid}.${fileExtension}`);
 
     try {
@@ -52,7 +56,7 @@ const UploadProfilePicture: React.FC = () => {
       const userDocRef = doc(db, 'users', user.uid);
       await updateDoc(userDocRef, {
         profilePictureUrl: downloadURL,
-        photoURL: downloadURL // Sync with standard photoURL for consistency
+        photoURL: downloadURL
       });
 
       setProfilePicture(downloadURL);

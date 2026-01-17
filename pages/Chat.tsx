@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Send, 
@@ -35,7 +34,6 @@ const Chat: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Listen for user's chat sessions and fetch other participants' details
   useEffect(() => {
     if (!user) return;
 
@@ -50,7 +48,8 @@ const Chat: React.FC = () => {
         const sessionData = await Promise.all(snapshot.docs.map(async (d) => {
           const data = d.data();
           const otherId = data.participants.find((p: string) => p !== user.uid);
-          const userDoc = await getDoc(doc(db, "users", otherId));
+          const userDocRef = doc(db, "users", otherId);
+          const userDoc = await getDoc(userDocRef);
           const userData = userDoc.data();
 
           return {
@@ -75,7 +74,6 @@ const Chat: React.FC = () => {
     return () => unsubscribe();
   }, [user]);
 
-  // Listen for messages in the active chat
   useEffect(() => {
     if (!activeChat) return;
 
@@ -95,12 +93,10 @@ const Chat: React.FC = () => {
     return () => unsubscribe();
   }, [activeChat]);
 
-  // Auto-scroll to bottom of messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Send message to current chat session
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !activeChat || !user) return;
@@ -110,7 +106,6 @@ const Chat: React.FC = () => {
     await sendChatMessage(activeChat.id, user.uid, text);
   };
 
-  // Open dialer for the selected user
   const handleCall = () => {
     if (activeChat?.otherUser?.phoneNumber) {
       window.location.href = `tel:${activeChat.otherUser.phoneNumber}`;
@@ -119,16 +114,14 @@ const Chat: React.FC = () => {
     }
   };
 
-  // Format Firestore timestamp for display
   const formatTime = (ts: any) => {
     if (!ts) return '';
-    const date = ts instanceof Timestamp ? ts.toDate() : new Date(ts);
+    const date = ts instanceof Timestamp ? ts.toDate() : (ts.toDate ? ts.toDate() : new Date(ts));
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
     <div className="flex h-[calc(100vh-160px)] bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden animate-fade-in">
-      {/* Sidebar - Chat List */}
       <div className={`w-full md:w-80 lg:w-96 border-r border-slate-50 flex flex-col ${activeChat ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-6 border-b border-slate-50">
           <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-4">Messages</h2>
@@ -177,11 +170,9 @@ const Chat: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Chat Window */}
       <div className={`flex-1 flex flex-col bg-slate-50/50 ${!activeChat ? 'hidden md:flex' : 'flex'}`}>
         {activeChat ? (
           <>
-            {/* Header */}
             <div className="bg-white p-4 md:px-8 border-b border-slate-100 flex items-center justify-between z-10 shadow-sm">
               <div className="flex items-center gap-4">
                 <button onClick={() => setActiveChat(null)} className="md:hidden p-2 text-slate-400 hover:text-indigo-600"><ArrowLeft size={20} /></button>
@@ -208,7 +199,6 @@ const Chat: React.FC = () => {
               </div>
             </div>
 
-            {/* Message Area */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
               {messages.map((msg, idx) => {
                 const isMe = msg.senderId === user?.uid;
@@ -226,7 +216,6 @@ const Chat: React.FC = () => {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input */}
             <form onSubmit={handleSendMessage} className="p-6 bg-white border-t border-slate-100">
               <div className="flex items-center gap-4 max-w-4xl mx-auto">
                 <input 

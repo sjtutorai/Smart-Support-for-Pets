@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   User as UserIcon, 
@@ -49,7 +48,6 @@ const Settings: React.FC = () => {
   const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('ssp_theme_color') || '#4f46e5');
   const [currentSurface, setCurrentSurface] = useState(() => localStorage.getItem('ssp_surface_color') || '#334155');
   
-  // Username Validation States
   const [isValidatingUsername, setIsValidatingUsername] = useState(false);
   const [usernameTakenStatus, setUsernameTakenStatus] = useState<'available' | 'taken' | 'none'>('none');
 
@@ -59,20 +57,19 @@ const Settings: React.FC = () => {
     phoneNumber: ''
   });
 
-  // Fetch user data from database on mount
   useEffect(() => {
     const fetchUserData = async () => {
       if (user) {
         try {
-          const docRef = doc(db, "users", user.uid);
-          const docSnap = await getDoc(docRef);
+          const userDocRef = doc(db, "users", user.uid);
+          const docSnap = await getDoc(userDocRef);
           if (docSnap.exists()) {
             const data = docSnap.data();
             setDbUser(data);
             setEditData({
-              displayName: data.displayName || user.displayName || '',
-              username: data.username || '',
-              phoneNumber: data.phoneNumber || ''
+              displayName: data?.displayName || user.displayName || '',
+              username: data?.username || '',
+              phoneNumber: data?.phoneNumber || ''
             });
           }
         } catch (e) {
@@ -83,7 +80,6 @@ const Settings: React.FC = () => {
     fetchUserData();
   }, [user]);
 
-  // Debounced Username Validation for handle uniqueness
   useEffect(() => {
     if (!isEditing || !editData.username || editData.username === dbUser?.username) {
       setIsValidatingUsername(false);
@@ -106,7 +102,6 @@ const Settings: React.FC = () => {
     return () => clearTimeout(handler);
   }, [editData.username, isEditing, dbUser?.username, user?.uid]);
 
-  // Update primary theme color
   const changeTheme = (color: string) => {
     setCurrentTheme(color);
     const root = document.documentElement;
@@ -117,7 +112,6 @@ const Settings: React.FC = () => {
     addNotification('Primary Color Updated', 'Branding preferences updated.', 'success');
   };
 
-  // Update surface color (sidebar, etc)
   const changeSurface = (color: string) => {
     setCurrentSurface(color);
     const root = document.documentElement;
@@ -126,7 +120,6 @@ const Settings: React.FC = () => {
     addNotification('Surface Color Updated', 'Interface aesthetic updated.', 'success');
   };
 
-  // Persist profile changes to Firestore
   const handleSaveProfile = async () => {
     if (!user || usernameTakenStatus === 'taken' || isValidatingUsername) return;
     
@@ -167,7 +160,6 @@ const Settings: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto pb-32 space-y-12 animate-fade-in">
-      {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
         <div className="space-y-2">
           <div className="inline-flex px-4 py-1.5 bg-theme-light text-theme rounded-full text-xs font-black uppercase tracking-widest mb-2 transition-theme">Aesthetic Hub</div>
@@ -184,11 +176,9 @@ const Settings: React.FC = () => {
       </div>
 
       <div className="space-y-10">
-        {/* Profile Card */}
         <div className="bg-white rounded-[4rem] p-10 md:p-20 border border-slate-50 shadow-2xl space-y-16 relative overflow-hidden transition-all duration-700">
           <div className="flex flex-col lg:flex-row items-center justify-center lg:items-start gap-16 lg:gap-24">
             
-            {/* Identity & Upload Area */}
             <div className="w-full lg:w-72 space-y-8 shrink-0">
                <UploadProfilePicture />
                {!isEditing && (
@@ -201,7 +191,6 @@ const Settings: React.FC = () => {
               )}
             </div>
 
-            {/* Fields Area */}
             <div className="flex-1 w-full max-w-xl space-y-12">
               <div className="space-y-10">
                 <div className="space-y-3">
@@ -309,9 +298,7 @@ const Settings: React.FC = () => {
           </div>
         </div>
 
-        {/* Theme Picker Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Primary Theme Picker */}
             <div className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-sm space-y-12">
                 <div className="flex items-center gap-5">
                     <div className="p-4 bg-theme-light text-theme rounded-[2rem] transition-theme shadow-sm">
@@ -349,7 +336,6 @@ const Settings: React.FC = () => {
                 </div>
             </div>
 
-            {/* Surface Theme Picker */}
             <div className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-sm space-y-12">
                 <div className="flex items-center gap-5">
                     <div className="p-4 bg-slate-900 text-white rounded-[2rem] transition-theme shadow-sm">

@@ -1,7 +1,4 @@
-
-// Fix: Use standard modular imports from Firebase v9+. 
-// If the environment fails to resolve named exports, ensuring they are cleanly listed helps.
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
   getAuth, 
   signOut, 
@@ -49,7 +46,8 @@ const firebaseConfig = {
   appId: "1:737739952686:web:17ecad5079401fb6ee05bf"
 };
 
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
@@ -104,7 +102,7 @@ export const updateUserProfile = async (uid: string, data: any) => {
   if (data.displayName) {
     updateData.lowercaseDisplayName = data.displayName.toLowerCase();
   }
-  await setDoc(userRef, updateData, { merge: true });
+  await updateDoc(userRef, updateData);
 };
 
 // Resend email verification
@@ -149,7 +147,11 @@ export const getUserById = async (id: string) => {
 // Fetch user by username
 export const getUserByUsername = async (username: string): Promise<AppUser | null> => {
   if (!username) return null;
-  const q = query(collection(db, "users"), where("username", "==", username.toLowerCase().trim()), limit(1));
+  const q = query(
+    collection(db, "users"), 
+    where("username", "==", username.toLowerCase().trim()), 
+    limit(1)
+  );
   const querySnapshot = await getDocs(q);
   if (querySnapshot.empty) return null;
   return { uid: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as AppUser;
@@ -219,9 +221,15 @@ export const logout = () => signOut(auth);
 export const loginWithIdentifier = async (identifier: string, password: string) => {
   let email = identifier.trim();
   if (!identifier.includes('@')) {
-    const q = query(collection(db, "users"), where("username", "==", identifier.toLowerCase().trim()), limit(1));
+    const q = query(
+      collection(db, "users"), 
+      where("username", "==", identifier.toLowerCase().trim()), 
+      limit(1)
+    );
     const querySnapshot = await getDocs(q);
-    if (!querySnapshot.empty) email = querySnapshot.docs[0].data().email;
+    if (!querySnapshot.empty) {
+      email = querySnapshot.docs[0].data().email;
+    }
   }
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
   await syncUserToDb(userCredential.user);
@@ -244,21 +252,39 @@ export const startChat = async (currentUserId: string, targetUserId: string): Pr
   const q = query(collection(db, "chats"), where("participants", "==", participants), limit(1));
   const querySnapshot = await getDocs(q);
   if (!querySnapshot.empty) return querySnapshot.docs[0].id;
-  const newChatRef = await addDoc(collection(db, "chats"), { participants, lastMessage: '', createdAt: serverTimestamp(), lastTimestamp: serverTimestamp() });
+  
+  const newChatRef = await addDoc(collection(db, "chats"), { 
+    participants, 
+    lastMessage: '', 
+    createdAt: serverTimestamp(), 
+    lastTimestamp: serverTimestamp() 
+  });
   return newChatRef.id;
 };
 
 // Send a chat message within a session
 export const sendChatMessage = async (chatId: string, senderId: string, text: string) => {
   const chatRef = doc(db, "chats", chatId);
-  await addDoc(collection(chatRef, "messages"), { senderId, text, timestamp: serverTimestamp() });
-  await updateDoc(chatRef, { lastMessage: text, lastTimestamp: serverTimestamp() });
+  await addDoc(collection(chatRef, "messages"), { 
+    senderId, 
+    text, 
+    timestamp: serverTimestamp() 
+  });
+  await updateDoc(chatRef, { 
+    lastMessage: text, 
+    lastTimestamp: serverTimestamp() 
+  });
 };
 
 // Retrieve follow status between two users
 export const getFollowStatus = async (followerId: string, followingId: string): Promise<FollowStatus> => {
   if (followerId === followingId) return 'is_self';
-  const q = query(collection(db, "follows"), where("followerId", "==", followerId), where("followingId", "==", followingId), limit(1));
+  const q = query(
+    collection(db, "follows"), 
+    where("followerId", "==", followerId), 
+    where("followingId", "==", followingId), 
+    limit(1)
+  );
   const snapshot = await getDocs(q);
   if (snapshot.empty) return 'not_following';
   return snapshot.docs[0].data().status === 'pending' ? 'pending' : 'following';
@@ -266,18 +292,34 @@ export const getFollowStatus = async (followerId: string, followingId: string): 
 
 // Request to follow another user
 export const requestFollow = async (followerId: string, followerName: string, followingId: string) => {
-  const followRef = await addDoc(collection(db, "follows"), { followerId, followingId, status: 'pending', createdAt: serverTimestamp() });
-  await addDoc(collection(db, "notifications"), { userId: followingId, type: 'follow_request', fromUserId: followerId, fromUserName: followerName, read: false, timestamp: serverTimestamp(), relatedId: followRef.id });
+  const followRef = await addDoc(collection(db, "follows"), { 
+    followerId, 
+    followingId, 
+    status: 'pending', 
+    createdAt: serverTimestamp() 
+  });
+  await addDoc(collection(db, "notifications"), { 
+    userId: followingId, 
+    type: 'follow_request', 
+    fromUserId: followerId, 
+    fromUserName: followerName, 
+    read: false, 
+    timestamp: serverTimestamp(), 
+    relatedId: followRef.id 
+  });
 };
 
 // Handle follow request action (accept or decline)
 export const handleFollowRequestAction = async (notificationId: string, followId: string, action: 'accept' | 'decline') => {
   const batch = writeBatch(db);
-  if (action === 'accept') batch.update(doc(db, "follows", followId), { status: 'accepted' });
-  else batch.delete(doc(db, "follows", followId));
+  if (action === 'accept') {
+    batch.update(doc(db, "follows", followId), { status: 'accepted' });
+  } else {
+    batch.delete(doc(db, "follows", followId));
+  }
   batch.update(doc(db, "notifications", notificationId), { read: true }); 
   await batch.commit();
 };
 
 export { onAuthStateChanged };
-export type { FirebaseUser };
+export type { FirebaseUser, QueryDocumentSnapshot };
