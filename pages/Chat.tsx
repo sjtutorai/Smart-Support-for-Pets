@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Send, 
@@ -35,6 +34,7 @@ const Chat: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Listen for user's chat sessions and fetch other participants' details
   useEffect(() => {
     if (!user) return;
 
@@ -44,7 +44,6 @@ const Chat: React.FC = () => {
       orderBy("lastTimestamp", "desc")
     );
 
-    // Fix: Refactored the async onSnapshot callback into a stable function to fix scoping and syntax errors.
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const updateSessionsList = async () => {
         const sessionData = await Promise.all(snapshot.docs.map(async (d) => {
@@ -75,6 +74,7 @@ const Chat: React.FC = () => {
     return () => unsubscribe();
   }, [user]);
 
+  // Listen for messages in the active chat
   useEffect(() => {
     if (!activeChat) return;
 
@@ -94,10 +94,12 @@ const Chat: React.FC = () => {
     return () => unsubscribe();
   }, [activeChat]);
 
+  // Auto-scroll to bottom of messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Send message to current chat session
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !activeChat || !user) return;
@@ -107,6 +109,7 @@ const Chat: React.FC = () => {
     await sendChatMessage(activeChat.id, user.uid, text);
   };
 
+  // Open dialer for the selected user
   const handleCall = () => {
     if (activeChat?.otherUser?.phoneNumber) {
       window.location.href = `tel:${activeChat.otherUser.phoneNumber}`;
@@ -115,6 +118,7 @@ const Chat: React.FC = () => {
     }
   };
 
+  // Format Firestore timestamp for display
   const formatTime = (ts: any) => {
     if (!ts) return '';
     const date = ts instanceof Timestamp ? ts.toDate() : new Date(ts);

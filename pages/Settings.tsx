@@ -57,6 +57,7 @@ const Settings: React.FC = () => {
     phoneNumber: ''
   });
 
+  // Fetch user data from database on mount
   useEffect(() => {
     const fetchUserData = async () => {
       if (user) {
@@ -80,7 +81,7 @@ const Settings: React.FC = () => {
     fetchUserData();
   }, [user]);
 
-  // Debounced Username Validation
+  // Debounced Username Validation for handle uniqueness
   useEffect(() => {
     if (!isEditing || !editData.username || editData.username === dbUser?.username) {
       setIsValidatingUsername(false);
@@ -103,6 +104,7 @@ const Settings: React.FC = () => {
     return () => clearTimeout(handler);
   }, [editData.username, isEditing, dbUser?.username, user?.uid]);
 
+  // Update primary theme color
   const changeTheme = (color: string) => {
     setCurrentTheme(color);
     const root = document.documentElement;
@@ -113,6 +115,7 @@ const Settings: React.FC = () => {
     addNotification('Primary Color Updated', 'Branding preferences updated.', 'success');
   };
 
+  // Update surface color (sidebar, etc)
   const changeSurface = (color: string) => {
     setCurrentSurface(color);
     const root = document.documentElement;
@@ -121,6 +124,7 @@ const Settings: React.FC = () => {
     addNotification('Surface Color Updated', 'Interface aesthetic updated.', 'success');
   };
 
+  // Persist profile changes to Firestore
   const handleSaveProfile = async () => {
     if (!user || usernameTakenStatus === 'taken' || isValidatingUsername) return;
     

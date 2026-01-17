@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { db } from '../services/firebase';
-// FIX: import 'limit' from firestore
 import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, limit } from 'firebase/firestore';
 import { AppNotification } from '../types';
 
@@ -15,7 +14,7 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-// FIX: Add missing STAT_ROUTINE export used in Home.tsx
+// Daily care routine tasks shown on home dashboard
 export const STAT_ROUTINE = [
   { id: 1, task: 'Morning Walk', timeLabel: '07:00 AM - 08:00 AM', startHour: 7, endHour: 8 },
   { id: 2, task: 'Breakfast Time', timeLabel: '08:00 AM - 09:00 AM', startHour: 8, endHour: 9 },
@@ -41,7 +40,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const q = query(
       collection(db, "notifications"),
       where("userId", "==", user.uid),
-      orderBy("timestamp", "desc"), // Corrected to use 'timestamp' instead of 'createdAt'
+      orderBy("timestamp", "desc"),
       limit(20)
     );
 
@@ -60,10 +59,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  // Add a notification record for the current user
   const addNotification = useCallback(async (title: string, message: string, type: AppNotification['type'] = 'info') => {
-    if (!user) return; // Can't send notification if no user is logged in
+    if (!user) return; 
     
-    // This function is now for creating local/system notifications that need to be stored for the current user
     try {
       await addDoc(collection(db, "notifications"), {
         userId: user.uid,
@@ -71,13 +70,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         message,
         type,
         read: false,
-        timestamp: serverTimestamp(), // Corrected to use 'timestamp' instead of 'createdAt'
+        timestamp: serverTimestamp(),
       });
     } catch (error) {
       console.error("Failed to add notification:", error);
     }
   }, [user]);
 
+  // Mark specific notification as read in Firestore
   const markAsRead = async (id: string) => {
     if (!user) return;
     const notifRef = doc(db, "notifications", id);
@@ -88,11 +88,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
   
+  // Visually clear notifications from the local list
   const clearAll = async () => {
     if (!user) return;
-    // For simplicity, we'll just clear the local state. A real implementation might batch delete.
     setNotifications([]);
-    // This is a complex operation on the backend, for now, we remove them visually.
   };
 
   return (

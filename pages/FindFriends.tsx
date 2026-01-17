@@ -1,30 +1,59 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Loader2, PawPrint, User as UserIcon, AtSign, Users, ArrowRight } from 'lucide-react';
-import { getAllUsers } from '../services/firebase';
+import { Search, Loader2, User as UserIcon, AtSign, Users, ArrowRight, ChevronDown } from 'lucide-react';
+import { getUsersPaginated } from '../services/firebase';
 import { Link } from 'react-router-dom';
 import { User } from '../types';
+import { QueryDocumentSnapshot } from 'firebase/firestore';
 import FollowButton from '../components/FollowButton';
+
+const PAGE_SIZE = 12;
 
 const FindFriends: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
+  const [hasMore, setHasMore] = useState(true);
 
+  // Initial fetch on mount
   useEffect(() => {
-    const fetchUsers = async () => {
-      setIsLoading(true);
-      try {
-        const allUsers = await getAllUsers();
-        setUsers(allUsers);
-      } catch (error) {
-        console.error("Error fetching community users:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchUsers();
+    fetchInitialUsers();
   }, []);
 
+  // Retrieve first page of users from Firestore
+  const fetchInitialUsers = async () => {
+    setIsLoading(true);
+    try {
+      const result = await getUsersPaginated(PAGE_SIZE);
+      setUsers(result.users);
+      setLastDoc(result.lastDoc);
+      setHasMore(result.hasMore);
+    } catch (error) {
+      console.error("Error fetching community users:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Retrieve next page of users using the cursor
+  const loadMoreUsers = async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+    try {
+      const result = await getUsersPaginated(PAGE_SIZE, lastDoc);
+      setUsers(prev => [...prev, ...result.users]);
+      setLastDoc(result.lastDoc);
+      setHasMore(result.hasMore);
+    } catch (error) {
+      console.error("Error loading more users:", error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  // Search through currently loaded users in local state
   const filteredUsers = useMemo(() => {
     const query = searchText.toLowerCase().trim();
     if (!query) return users;
@@ -47,7 +76,7 @@ const FindFriends: React.FC = () => {
         <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm">
           <Users size={18} className="text-theme" />
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-            {users.length} Active Guardians
+            Explorer Mode Active
           </span>
         </div>
       </div>
@@ -60,7 +89,7 @@ const FindFriends: React.FC = () => {
           type="text"
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
-          placeholder="Search by name, handle, or email..."
+          placeholder="Search loaded guardians..."
           className="w-full bg-white border border-slate-100 rounded-[2rem] py-6 pl-16 pr-6 text-lg font-bold outline-none focus:ring-8 focus:ring-theme/5 transition-all shadow-xl shadow-slate-200/40"
         />
       </div>
@@ -74,7 +103,7 @@ const FindFriends: React.FC = () => {
         ) : filteredUsers.length === 0 ? (
           <div className="col-span-full py-24 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
             <UserIcon size={48} className="mx-auto text-slate-100 mb-4" />
-            <h4 className="font-black text-slate-400 uppercase tracking-widest">No users match your search</h4>
+            <h4 className="font-black text-slate-400 uppercase tracking-widest">No matching guardians found</h4>
           </div>
         ) : (
           filteredUsers.map((u) => {
@@ -119,6 +148,28 @@ const FindFriends: React.FC = () => {
           })
         )}
       </div>
+
+      {hasMore && !isLoading && (
+        <div className="pt-10 flex justify-center">
+          <button 
+            onClick={loadMoreUsers}
+            disabled={isLoadingMore}
+            className="flex items-center gap-3 px-12 py-5 bg-white border border-slate-100 text-slate-600 rounded-3xl font-black uppercase text-xs tracking-widest hover:bg-theme hover:text-white hover:border-theme shadow-xl active:scale-95 transition-all disabled:opacity-50"
+          >
+            {isLoadingMore ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Expanding Directory...
+              </>
+            ) : (
+              <>
+                <ChevronDown size={16} />
+                Load More Guardians
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 };

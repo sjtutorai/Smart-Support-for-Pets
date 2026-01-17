@@ -1,17 +1,22 @@
+
+// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { 
-  getAuth, 
-  signOut, 
-  onAuthStateChanged, 
-  GoogleAuthProvider,
-  OAuthProvider,
-  signInWithPopup,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  updateProfile,
-  sendEmailVerification,
-  User as FirebaseUser 
-} from "firebase/auth";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCVUMhFhDzfbvF-iXthH6StOlI6mJreTmA",
+  authDomain: "smart-support-for-pets.firebaseapp.com",
+  databaseURL: "https://smart-support-for-pets-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "smart-support-for-pets",
+  storageBucket: "smart-support-for-pets.firebasestorage.app",
+  messagingSenderId: "737739952686",
+  appId: "1:737739952686:web:17ecad5079401fb6ee05bf"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 import { 
   getFirestore, 
   doc, 
@@ -28,10 +33,17 @@ import {
   onSnapshot,
   deleteDoc,
   writeBatch,
-  orderBy
+  orderBy,
+  startAfter,
+  QueryDocumentSnapshot,
+  documentId
 } from "firebase/firestore";
-import { User, PetProfile, FollowStatus } from '../types';
+import { User as AppUser, PetProfile, FollowStatus } from '../types';
 
+// Aliasing User from Firebase to FirebaseUser to avoid confusion with internal User type
+type FirebaseUser = User;
+
+// Initialize Firebase with modular SDK
 const firebaseConfig = {
   apiKey: "AIzaSyCVUMhFhDzfbvF-iXthH6StOlI6mJreTmA",
   authDomain: "smart-support-for-pets.firebaseapp.com",
@@ -46,6 +58,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
+// Check if username is already in use
 export const isUsernameTaken = async (username: string, excludeUid: string) => {
   if (!username) return false;
   try {
@@ -62,9 +75,10 @@ export const isUsernameTaken = async (username: string, excludeUid: string) => {
   }
 };
 
+// Sync auth user data to Firestore
 export const syncUserToDb = async (user: FirebaseUser, extraData: any = {}) => {
   const userRef = doc(db, "users", user.uid);
-  const displayName = extraData.displayName || user.displayName || 'Pet Parent';
+  const displayName = extraData.displayName || user.displayName || user.email?.split('@')[0] || 'Pet Parent';
   const data = {
     uid: user.uid,
     email: user.email,
@@ -84,6 +98,7 @@ export const syncUserToDb = async (user: FirebaseUser, extraData: any = {}) => {
   }
 };
 
+// Update existing user profile in Firestore
 export const updateUserProfile = async (uid: string, data: any) => {
   const userRef = doc(db, "users", uid);
   const updateData = {
@@ -96,12 +111,14 @@ export const updateUserProfile = async (uid: string, data: any) => {
   await setDoc(userRef, updateData, { merge: true });
 };
 
+// Resend email verification
 export const resendVerificationEmail = async () => {
   if (auth.currentUser) {
     await sendEmailVerification(auth.currentUser);
   }
 };
 
+// Sync pet profile to Firestore
 export const syncPetToDb = async (pet: any) => {
   const petRef = doc(db, "pets", pet.id);
   await setDoc(petRef, {
@@ -111,11 +128,13 @@ export const syncPetToDb = async (pet: any) => {
   }, { merge: true });
 };
 
+// Delete pet profile from Firestore
 export const deletePet = async (petId: string) => {
   if (!petId) return;
   await deleteDoc(doc(db, "pets", petId));
 };
 
+// Fetch pet by ID
 export const getPetById = async (id: string) => {
   if (!id) return null;
   const petRef = doc(db, "pets", id);
@@ -123,21 +142,24 @@ export const getPetById = async (id: string) => {
   return snap.exists() ? { id: snap.id, ...snap.data() } as PetProfile : null;
 };
 
+// Fetch user by ID
 export const getUserById = async (id: string) => {
   if (!id) return null;
   const userRef = doc(db, "users", id);
   const snap = await getDoc(userRef);
-  return snap.exists() ? { uid: snap.id, ...snap.data() } as User : null;
+  return snap.exists() ? { uid: snap.id, ...snap.data() } as AppUser : null;
 };
 
-export const getUserByUsername = async (username: string): Promise<User | null> => {
+// Fetch user by username
+export const getUserByUsername = async (username: string): Promise<AppUser | null> => {
   if (!username) return null;
   const q = query(collection(db, "users"), where("username", "==", username.toLowerCase().trim()), limit(1));
   const querySnapshot = await getDocs(q);
   if (querySnapshot.empty) return null;
-  return { uid: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as User;
+  return { uid: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as AppUser;
 };
 
+// Fetch pets owned by a specific user
 export const getPetsByOwnerId = async (ownerId: string): Promise<PetProfile[]> => {
   if (!ownerId) return [];
   const q = query(collection(db, "pets"), where("ownerId", "==", ownerId));
@@ -145,12 +167,40 @@ export const getPetsByOwnerId = async (ownerId: string): Promise<PetProfile[]> =
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as PetProfile);
 };
 
-export const getAllUsers = async (): Promise<User[]> => {
-  const usersCollection = collection(db, "users");
-  const usersSnapshot = await getDocs(usersCollection);
-  return usersSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }) as User);
+// Fetch all users with a limit - optimized for faster initial load
+export const getAllUsers = async (count: number = 100): Promise<AppUser[]> => {
+  const q = query(collection(db, "users"), limit(count));
+  const usersSnapshot = await getDocs(q);
+  return usersSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }) as AppUser);
 };
 
+// Fetch paginated users - uses documentId for fastest possible indexing-free sorting
+export const getUsersPaginated = async (pageSize: number, lastDoc: QueryDocumentSnapshot | null = null) => {
+  let q = query(
+    collection(db, "users"), 
+    orderBy(documentId()), 
+    limit(pageSize)
+  );
+  
+  if (lastDoc) {
+    q = query(
+      collection(db, "users"), 
+      orderBy(documentId()), 
+      startAfter(lastDoc), 
+      limit(pageSize)
+    );
+  }
+  
+  const snapshot = await getDocs(q);
+  const users = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }) as AppUser);
+  return {
+    users,
+    lastDoc: snapshot.docs[snapshot.docs.length - 1] as QueryDocumentSnapshot || null,
+    hasMore: snapshot.docs.length === pageSize
+  };
+};
+
+// Login with Google Popup
 export const loginWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
   const result = await signInWithPopup(auth, provider);
@@ -158,6 +208,7 @@ export const loginWithGoogle = async () => {
   return result.user;
 };
 
+// Login with Apple Popup
 export const loginWithApple = async () => {
   const provider = new OAuthProvider('apple.com');
   const result = await signInWithPopup(auth, provider);
@@ -165,8 +216,10 @@ export const loginWithApple = async () => {
   return result.user;
 };
 
+// Sign out from auth
 export const logout = () => signOut(auth);
 
+// Login with email or username
 export const loginWithIdentifier = async (identifier: string, password: string) => {
   let email = identifier.trim();
   if (!identifier.includes('@')) {
@@ -179,6 +232,7 @@ export const loginWithIdentifier = async (identifier: string, password: string) 
   return userCredential.user;
 };
 
+// Sign up with email, password, and profile data
 export const signUpWithEmail = async (email: string, password: string, fullName: string, username: string) => {
   if (await isUsernameTaken(username, '')) throw { code: 'auth/username-already-in-use' };
   const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
@@ -188,6 +242,7 @@ export const signUpWithEmail = async (email: string, password: string, fullName:
   return user;
 };
 
+// Start or retrieve a chat session between two users
 export const startChat = async (currentUserId: string, targetUserId: string): Promise<string> => {
   const participants = [currentUserId, targetUserId].sort();
   const q = query(collection(db, "chats"), where("participants", "==", participants), limit(1));
@@ -197,12 +252,14 @@ export const startChat = async (currentUserId: string, targetUserId: string): Pr
   return newChatRef.id;
 };
 
+// Send a chat message within a session
 export const sendChatMessage = async (chatId: string, senderId: string, text: string) => {
   const chatRef = doc(db, "chats", chatId);
   await addDoc(collection(chatRef, "messages"), { senderId, text, timestamp: serverTimestamp() });
   await updateDoc(chatRef, { lastMessage: text, lastTimestamp: serverTimestamp() });
 };
 
+// Retrieve follow status between two users
 export const getFollowStatus = async (followerId: string, followingId: string): Promise<FollowStatus> => {
   if (followerId === followingId) return 'is_self';
   const q = query(collection(db, "follows"), where("followerId", "==", followerId), where("followingId", "==", followingId), limit(1));
@@ -211,11 +268,13 @@ export const getFollowStatus = async (followerId: string, followingId: string): 
   return snapshot.docs[0].data().status === 'pending' ? 'pending' : 'following';
 };
 
+// Request to follow another user
 export const requestFollow = async (followerId: string, followerName: string, followingId: string) => {
   const followRef = await addDoc(collection(db, "follows"), { followerId, followingId, status: 'pending', createdAt: serverTimestamp() });
   await addDoc(collection(db, "notifications"), { userId: followingId, type: 'follow_request', fromUserId: followerId, fromUserName: followerName, read: false, timestamp: serverTimestamp(), relatedId: followRef.id });
 };
 
+// Handle follow request action (accept or decline)
 export const handleFollowRequestAction = async (notificationId: string, followId: string, action: 'accept' | 'decline') => {
   const batch = writeBatch(db);
   if (action === 'accept') batch.update(doc(db, "follows", followId), { status: 'accepted' });

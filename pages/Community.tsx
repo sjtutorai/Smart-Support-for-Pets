@@ -16,6 +16,7 @@ import FollowButton from '../components/FollowButton';
 
 const CATEGORY_OPTIONS = ['All', 'Mammals', 'Birds', 'Fish', 'Reptiles', 'Amphibians', 'Insects/Arthropods', 'Other'];
 
+// Compress base64 images before uploading to Firestore to stay within document limits
 const compressImage = (base64Str: string): Promise<string> => {
   return new Promise((resolve) => {
     const img = new Image();
@@ -50,6 +51,7 @@ const Community: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState('All');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Fetch current user's primary pet and community suggestions on load
   useEffect(() => {
     const fetchPetData = async () => {
       if (user?.uid) {
@@ -61,9 +63,9 @@ const Community: React.FC = () => {
     };
     const fetchSuggested = async () => {
       try {
-        const all = await getAllUsers();
-        // Filter out current user and take a few random ones
-        const filtered = all.filter(u => u.uid !== user?.uid).slice(0, 8);
+        // Optimized: Fetch only 12 users instead of the entire directory
+        const batch = await getAllUsers(12);
+        const filtered = batch.filter(u => u.uid !== user?.uid).slice(0, 8);
         setSuggestedUsers(filtered);
       } catch (e) { console.error("User fetch error", e); }
     };
@@ -71,6 +73,7 @@ const Community: React.FC = () => {
     fetchSuggested();
   }, [user]);
 
+  // Real-time listener for community posts
   useEffect(() => {
     setLoading(true);
     const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
@@ -84,6 +87,7 @@ const Community: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+  // Submit new post to Firestore
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isPosting || (!newPostContent.trim() && !selectedImage) || !user) return;
@@ -101,6 +105,7 @@ const Community: React.FC = () => {
     finally { setIsPosting(false); }
   };
 
+  // Filter posts by search query and species category
   const filteredPosts = useMemo(() => {
     const queryTerm = searchQuery.toLowerCase();
     return posts.filter(p => {
@@ -152,6 +157,7 @@ const Community: React.FC = () => {
         </div>
       </div>
 
+      {/* Post creation area */}
       <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm space-y-6">
         <div className="flex items-center gap-3">
            <div className="w-10 h-10 rounded-xl bg-slate-100 border overflow-hidden">
@@ -172,6 +178,7 @@ const Community: React.FC = () => {
         </div>
       </div>
 
+      {/* Post feed list */}
       <div className="space-y-8 mt-12">
         {loading ? <div className="text-center py-20"><Loader2 size={32} className="animate-spin text-slate-200 mx-auto" /></div>
          : filteredPosts.length === 0 ? (
