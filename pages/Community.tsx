@@ -1,71 +1,20 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Heart, Share2, Image as ImageIcon, Search, Filter, X, 
-  User as UserIcon, ChevronDown, TrendingUp, Clock, Wand2, Loader2, UserPlus, Check
+  User as UserIcon, ChevronDown, TrendingUp, Clock, Wand2, Loader2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
-import { db, getFollowStatus, requestFollow } from '../services/firebase';
+import { db } from '../services/firebase';
 import { 
   collection, addDoc, query, orderBy, onSnapshot, serverTimestamp 
 } from "firebase/firestore";
 import { GoogleGenAI } from "@google/genai";
-import { PetProfile, Post, FollowStatus } from '../types';
+import { PetProfile, Post } from '../types';
 import { Link } from 'react-router-dom';
+import FollowButton from '../components/FollowButton';
 
 const PET_TYPES = ['All', 'Dog', 'Cat', 'Bird', 'Fish', 'Rabbit', 'Hamster', 'Reptile', 'Other'];
-
-const FollowButton: React.FC<{ targetUserId: string }> = ({ targetUserId }) => {
-  const { user } = useAuth();
-  const [status, setStatus] = useState<FollowStatus>('not_following');
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    if (!user || !targetUserId) return;
-
-    const checkStatus = async () => {
-      setIsLoading(true);
-      const currentStatus = await getFollowStatus(user.uid, targetUserId);
-      setStatus(currentStatus);
-      setIsLoading(false);
-    };
-
-    checkStatus();
-  }, [user, targetUserId]);
-
-  const handleFollow = async () => {
-    if (!user || !user.displayName) return;
-    setIsLoading(true);
-    await requestFollow(user.uid, user.displayName, targetUserId);
-    setStatus('pending');
-    setIsLoading(false);
-  };
-
-  if (status === 'is_self' || isLoading) return null;
-  
-  if (status === 'following') {
-    return (
-      <div className="flex items-center gap-1 text-emerald-600 text-[10px] font-black uppercase tracking-widest">
-        <Check size={14} /> Following
-      </div>
-    );
-  }
-  
-  if (status === 'pending') {
-    return (
-      <div className="text-amber-600 text-[10px] font-black uppercase tracking-widest">
-        Pending
-      </div>
-    );
-  }
-
-  return (
-    <button onClick={handleFollow} className="flex items-center gap-2 bg-theme-light text-theme px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-theme hover:text-white transition-all">
-      <UserPlus size={14} /> Follow
-    </button>
-  );
-};
-
 
 const Community: React.FC = () => {
   const { user } = useAuth();
