@@ -7,7 +7,7 @@ import { syncPetToDb, getPetById } from '../services/firebase';
 import jsQR from 'jsqr';
 import { 
   Dog, Plus, PawPrint, Camera, CheckCircle2, Bird, Fish, Thermometer,  
-  Trash2, Stethoscope, Brain, Wand2, Scan, X, Syringe, TrendingUp, Loader2, Key
+  Trash2, Stethoscope, Brain, Wand2, Scan, X, Syringe, TrendingUp, Loader2, Palette, Sparkles
 } from 'lucide-react';
 import { PetProfile, WeightRecord, VaccinationRecord } from '../types';
 
@@ -20,6 +20,13 @@ export const BREED_DATA: Record<string, string[]> = {
   'Guinea Pig': ['Abyssinian', 'American', 'Peruvian', 'Teddy'],
   Other: ['Exotic Pet', 'Wild Animal', 'Invertebrate']
 };
+
+const AVATAR_STYLES = [
+  { id: 'realistic', name: 'Hyper-realistic', prompt: 'a cinematic, hyper-realistic professional studio portrait with soft lighting' },
+  { id: 'cartoon', name: 'Cute Cartoon', prompt: 'a cute 3D Pixar-style cartoon animation style with exaggerated expressive eyes' },
+  { id: 'watercolor', name: 'Watercolor', prompt: 'a beautiful, artistic watercolor painting style with soft edges and vibrant washes' },
+  { id: 'oil', name: 'Oil Painting', prompt: 'a classic Renaissance-style oil painting with thick brushstrokes and rich textures' }
+];
 
 export const PET_CATEGORIES = [
   { id: 'mammal', name: 'Mammals', icon: Dog, species: ['Dog', 'Cat', 'Rabbit', 'Hamster', 'Guinea Pig'] },
@@ -49,7 +56,8 @@ const PetProfilePage: React.FC = () => {
   const [isAddingRecord, setIsAddingRecord] = useState<'vaccine' | 'weight' | null>(null);
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
-  const [showKeyPrompt, setShowKeyPrompt] = useState(false);
+  const [showStyleSelector, setShowStyleSelector] = useState(false);
+  const [selectedAvatarStyle, setSelectedAvatarStyle] = useState(AVATAR_STYLES[0]);
   const [step, setStep] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const [newPet, setNewPet] = useState<Partial<PetProfile>>({ name: '', breed: '', birthday: '', bio: '', species: 'Dog', weightHistory: [], vaccinations: [] });
@@ -91,7 +99,7 @@ const PetProfilePage: React.FC = () => {
         ageMonths: String(months), 
         weightHistory: [], 
         vaccinations: [], 
-        isPublic: false, // Default to private until followed
+        isPublic: false,
         lowercaseName: newPet.name?.toLowerCase() || ''
     };
     const updatedPets = [...pets, completePet];
@@ -140,15 +148,18 @@ const PetProfilePage: React.FC = () => {
     if (!selectedPet) return;
     
     setIsGeneratingAvatar(true);
-    setShowKeyPrompt(false);
+    setShowStyleSelector(false);
     
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `A cinematic, ultra-high-quality professional studio avatar portrait of a ${selectedPet.breed} ${selectedPet.species} named ${selectedPet.name}. Detailed fur, vibrant lighting, 4K resolution.`;
-      const contents: any = { parts: [{ text: prompt }] };
+      const stylePrompt = selectedAvatarStyle.prompt;
+      const finalPrompt = `A ${stylePrompt} of a ${selectedPet.breed} ${selectedPet.species} named ${selectedPet.name}. 4K resolution, beautiful artistic details.`;
+      
+      const contents: any = { parts: [{ text: finalPrompt }] };
       if (base64Source) {
         contents.parts.push({ inlineData: { data: base64Source.split(',')[1], mimeType: 'image/png' } });
       }
+      
       const response = await ai.models.generateContent({ 
         model: 'gemini-2.5-flash-image', 
         contents, 
@@ -162,6 +173,7 @@ const PetProfilePage: React.FC = () => {
           const updatedPets = pets.map(p => p.id === selectedPet.id ? updatedPet : p);
           await savePetsToStorage(updatedPets);
           setSelectedPet(updatedPet);
+          addNotification('AI Studio', `Success! Created a ${selectedAvatarStyle.name} avatar.`, 'success');
           break;
         }
       }
@@ -212,6 +224,8 @@ const PetProfilePage: React.FC = () => {
           } catch (err) {
             addNotification('Retrieval Failed', 'Could not verify ID.', 'error');
           }
+        } else {
+          addNotification('Scan Failed', 'No QR code found in the image.', 'warning');
         }
         setIsScanning(false);
       };
@@ -228,7 +242,7 @@ const PetProfilePage: React.FC = () => {
           <p className="text-slate-500 font-medium text-sm">Manage profiles and wellness records for your pets.</p>
         </div>
         <div className="flex items-center gap-3">
-          <input type="file" ref={qrFileInputRef} className="hidden" accept="image/*" onChange={handleFileScan} />
+          <input type="file" min="0" ref={qrFileInputRef} className="hidden" accept="image/*" onChange={handleFileScan} />
           <button onClick={handleScanClick} disabled={isScanning} className="flex items-center gap-2 px-6 py-3.5 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm active:scale-95 disabled:opacity-50">
             {isScanning ? <Loader2 size={18} className="animate-spin" /> : <Scan size={18} />} 
             Upload ID
@@ -243,7 +257,7 @@ const PetProfilePage: React.FC = () => {
         {pets.map(p => (
           <button 
             key={p.id} 
-            onClick={() => { setSelectedPet(p); setIsAdding(false); setShowKeyPrompt(false); }} 
+            onClick={() => { setSelectedPet(p); setIsAdding(false); setShowStyleSelector(false); }} 
             className={`flex items-center gap-3 px-5 py-3 rounded-2xl border-2 transition-all shrink-0 ${selectedPet?.id === p.id && !isAdding ? 'bg-theme-light border-theme shadow-sm scale-105' : 'bg-white border-transparent hover:bg-slate-50'}`}
           >
             <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">
@@ -298,9 +312,30 @@ const PetProfilePage: React.FC = () => {
                 )}
                 
                 {isGeneratingAvatar && (
-                  <div className="absolute inset-0 bg-white/40 flex flex-col items-center justify-center backdrop-blur-md">
+                  <div className="absolute inset-0 bg-white/40 flex flex-col items-center justify-center backdrop-blur-md z-10">
                     <Loader2 size={32} className="animate-spin text-theme mb-2" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-theme">Designing...</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-theme">Studio Session...</span>
+                  </div>
+                )}
+
+                {showStyleSelector && (
+                  <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-xl p-6 flex flex-col justify-center gap-3 animate-in fade-in zoom-in-95 z-20">
+                    <div className="flex items-center justify-between mb-2">
+                       <p className="text-[10px] font-black uppercase tracking-widest text-theme flex items-center gap-2">
+                         <Palette size={12}/> Select Style
+                       </p>
+                       <button onClick={() => setShowStyleSelector(false)} className="text-white/40 hover:text-white"><X size={14}/></button>
+                    </div>
+                    {AVATAR_STYLES.map(style => (
+                      <button 
+                        key={style.id} 
+                        onClick={() => { setSelectedAvatarStyle(style); generateAIAvatar(); }}
+                        className="w-full py-3 px-4 bg-white/10 hover:bg-theme hover:text-white border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white transition-all text-left flex items-center justify-between group/btn"
+                      >
+                        {style.name}
+                        <Sparkles size={12} className="opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
@@ -310,8 +345,8 @@ const PetProfilePage: React.FC = () => {
                   <Camera size={20} />
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onloadend = () => generateAIAvatar(reader.result as string); reader.readAsDataURL(file); } }} />
                 </button>
-                <button onClick={() => generateAIAvatar()} disabled={isGeneratingAvatar} className="p-3.5 rounded-xl shadow-lg transition-all bg-slate-900 text-theme hover:bg-black" title="Generate AI Avatar">
-                  <Wand2 size={20} />
+                <button onClick={() => setShowStyleSelector(!showStyleSelector)} disabled={isGeneratingAvatar} className={`p-3.5 rounded-xl shadow-lg transition-all ${showStyleSelector ? 'bg-theme text-white' : 'bg-slate-900 text-theme'} hover:bg-black`} title="Select AI Style">
+                  <Palette size={20} />
                 </button>
               </div>
 
