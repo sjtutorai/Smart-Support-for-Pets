@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Loader2, User as UserIcon, AtSign, Users, ArrowRight, ChevronDown } from 'lucide-react';
-import { getUsersPaginated } from '../services/firebase';
+import { Search, Loader2, User as UserIcon, AtSign, Users, ArrowRight, ChevronDown, RefreshCw } from 'lucide-react';
+import { getUsersPaginated, QueryDocumentSnapshot } from '../services/firebase';
 import { Link } from 'react-router-dom';
 import { User } from '../types';
-import type { QueryDocumentSnapshot } from 'firebase/firestore';
 import FollowButton from '../components/FollowButton';
 
 const PAGE_SIZE = 12;
@@ -24,7 +23,7 @@ const FindFriends: React.FC = () => {
     setIsLoading(true);
     try {
       const result = await getUsersPaginated(PAGE_SIZE);
-      setUsers(result.users);
+      setUsers(result.users || []);
       setLastDoc(result.lastDoc);
       setHasMore(result.hasMore);
     } catch (error) {
@@ -39,7 +38,9 @@ const FindFriends: React.FC = () => {
     setIsLoadingMore(true);
     try {
       const result = await getUsersPaginated(PAGE_SIZE, lastDoc);
-      setUsers(prev => [...prev, ...result.users]);
+      if (result.users && result.users.length > 0) {
+        setUsers(prev => [...prev, ...result.users]);
+      }
       setLastDoc(result.lastDoc);
       setHasMore(result.hasMore);
     } catch (error) {
@@ -68,11 +69,20 @@ const FindFriends: React.FC = () => {
           <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Community Discovery</h2>
           <p className="text-slate-500 font-medium text-sm mt-1">Meet other pet parents and build your network.</p>
         </div>
-        <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm">
-          <Users size={18} className="text-theme" />
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-            Explorer Mode Active
-          </span>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={fetchInitialUsers}
+            className="p-3 bg-white border border-slate-100 rounded-xl text-slate-400 hover:text-theme transition-colors shadow-sm"
+            title="Refresh Directory"
+          >
+            <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
+          </button>
+          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm">
+            <Users size={18} className="text-theme" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              {users.length} Indexed
+            </span>
+          </div>
         </div>
       </div>
 
@@ -99,6 +109,12 @@ const FindFriends: React.FC = () => {
           <div className="col-span-full py-24 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
             <UserIcon size={48} className="mx-auto text-slate-100 mb-4" />
             <h4 className="font-black text-slate-400 uppercase tracking-widest">No matching guardians found</h4>
+            <button 
+              onClick={fetchInitialUsers} 
+              className="mt-6 text-theme font-black uppercase text-[10px] tracking-widest hover:underline"
+            >
+              Try manual sync
+            </button>
           </div>
         ) : (
           filteredUsers.map((u) => {

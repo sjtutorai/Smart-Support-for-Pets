@@ -29,8 +29,7 @@ import {
   deleteDoc,
   writeBatch,
   orderBy,
-  startAfter,
-  documentId
+  startAfter
 } from 'firebase/firestore';
 import type { QueryDocumentSnapshot } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -78,7 +77,7 @@ export const syncUserToDb = async (user: FirebaseUser, extraData: any = {}) => {
     email: user.email,
     displayName: displayName,
     photoURL: user.photoURL || null,
-    username: extraData.username || user.displayName?.toLowerCase().replace(/\s/g, '') || user.uid.slice(0, 8),
+    username: (extraData.username || user.displayName?.toLowerCase().replace(/\s/g, '') || user.uid.slice(0, 8)).toLowerCase(),
     lastLogin: new Date().toISOString(),
     lowercaseDisplayName: displayName.toLowerCase(),
     ...extraData
@@ -165,37 +164,49 @@ export const getPetsByOwnerId = async (ownerId: string): Promise<PetProfile[]> =
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as PetProfile);
 };
 
-// Fetch all users with a limit - optimized for faster initial load
+// Fetch all users with a limit
 export const getAllUsers = async (count: number = 100): Promise<AppUser[]> => {
-  const q = query(collection(db, "users"), limit(count));
-  const usersSnapshot = await getDocs(q);
-  return usersSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }) as AppUser);
+  try {
+    const q = query(collection(db, "users"), limit(count));
+    const usersSnapshot = await getDocs(q);
+    return usersSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }) as AppUser);
+  } catch (err) {
+    console.error("Firebase fetch all users failed:", err);
+    return [];
+  }
 };
 
-// Fetch paginated users - uses documentId for fastest possible indexing-free sorting
+// Fetch paginated users - uses 'uid' for reliable ordering without custom indices
 export const getUsersPaginated = async (pageSize: number, lastDoc: QueryDocumentSnapshot | null = null) => {
-  let q = query(
-    collection(db, "users"), 
-    orderBy(documentId()), 
-    limit(pageSize)
-  );
-  
-  if (lastDoc) {
-    q = query(
-      collection(db, "users"), 
-      orderBy(documentId()), 
-      startAfter(lastDoc), 
-      limit(pageSize)
-    );
+  try {
+    let q;
+    if (lastDoc) {
+      q = query(
+        collection(db, "users"), 
+        orderBy("uid"), 
+        startAfter(lastDoc), 
+        limit(pageSize)
+      );
+    } else {
+      q = query(
+        collection(db, "users"), 
+        orderBy("uid"), 
+        limit(pageSize)
+      );
+    }
+    
+    const snapshot = await getDocs(q);
+    const users = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }) as AppUser);
+    
+    return {
+      users,
+      lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,
+      hasMore: snapshot.docs.length === pageSize
+    };
+  } catch (err) {
+    console.error("Firebase paginated fetch failed:", err);
+    return { users: [], lastDoc: null, hasMore: false };
   }
-  
-  const snapshot = await getDocs(q);
-  const users = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }) as AppUser);
-  return {
-    users,
-    lastDoc: snapshot.docs[snapshot.docs.length - 1] as QueryDocumentSnapshot || null,
-    hasMore: snapshot.docs.length === pageSize
-  };
 };
 
 // Login with Google Popup
