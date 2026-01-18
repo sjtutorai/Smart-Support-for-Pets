@@ -278,7 +278,7 @@ const Login: React.FC = () => {
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Secret Key</label>
             <div className="relative">
               <input name="password" type={showPassword ? "text" : "password"} placeholder="••••••••" value={formData.password} onChange={handleChange} className={`w-full bg-slate-50 border rounded-2xl py-4 px-6 pr-14 text-sm font-bold text-slate-900 focus:bg-white focus:ring-4 focus:ring-slate-50 outline-none transition-all placeholder:text-slate-300 ${formErrors.password ? 'border-rose-300' : 'border-slate-100'}`} />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors"><{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors">{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
             </div>
             {!isLogin && <p className="text-slate-400 text-[10px] font-bold px-2 mt-1.5">8+ characters, with uppercase, lowercase & a number.</p>}
             {formErrors.password && <p className="text-rose-500 text-xs font-bold px-2">{formErrors.password}</p>}
@@ -289,7 +289,7 @@ const Login: React.FC = () => {
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Repeat Key</label>
               <div className="relative">
                 <input name="confirmPassword" type={showConfirmPassword ? "text" : "password"} placeholder="••••••••" value={formData.confirmPassword} onChange={handleChange} className={`w-full bg-slate-50 border rounded-2xl py-4 px-6 pr-14 text-sm font-bold text-slate-900 focus:bg-white focus:ring-4 focus:ring-slate-50 outline-none transition-all placeholder:text-slate-300 ${formErrors.confirmPassword ? 'border-rose-300' : 'border-slate-100'}`} />
-                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors"><{showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors">{showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
               </div>
               {formErrors.confirmPassword && <p className="text-rose-500 text-xs font-bold px-2">{formErrors.confirmPassword}</p>}
             </div>
