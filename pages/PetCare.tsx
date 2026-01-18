@@ -11,7 +11,11 @@ import {
   Zap,
   CheckCircle,
   AlertCircle,
-  Map
+  Map,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { GoogleGenAI } from "@google/genai";
@@ -37,10 +41,16 @@ const PetCare: React.FC = () => {
   const [stats, setStats] = useState({ hunger: 70, energy: 40, happiness: 85 });
   const [isAnimating, setIsAnimating] = useState<string | null>(null);
   const [aiTip, setAiTip] = useState<string | null>(null);
+  const [showMilestones, setShowMilestones] = useState(false);
+  const [milestoneData, setMilestoneData] = useState<string[]>([]);
+  const [isLoadingMilestones, setIsLoadingMilestones] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem(`pet_${user?.uid}`);
-    if (saved) setPet(JSON.parse(saved));
+    const saved = localStorage.getItem(`ssp_pets_${user?.uid}`);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.length > 0) setPet(parsed[0]);
+    }
   }, [user]);
 
   const handleAction = (type: string) => {
@@ -53,6 +63,29 @@ const PetCare: React.FC = () => {
     if (type === 'play') setStats(s => ({ ...s, happiness: Math.min(100, s.happiness + 25), energy: Math.max(0, s.energy - 10) }));
   };
 
+  const fetchMilestones = async () => {
+    if (!pet || milestoneData.length > 0) {
+      setShowMilestones(!showMilestones);
+      return;
+    }
+    
+    setIsLoadingMilestones(true);
+    setShowMilestones(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `List 4 specific developmental milestones for a ${pet.species} (${pet.breed}) at the age of ${pet.ageYears} years and ${pet.ageMonths} months. Format as a simple list of sentences.`,
+      });
+      const lines = response.text?.split('\n').filter(l => l.trim().length > 5).map(l => l.replace(/^[*-]\s*/, '')) || [];
+      setMilestoneData(lines);
+    } catch (e) {
+      setMilestoneData(["Socialization is key at this stage.", "Regular dental checks are recommended.", "Ensuring balanced nutrition supports growth.", "Maintain a consistent sleep schedule."]);
+    } finally {
+      setIsLoadingMilestones(false);
+    }
+  };
+
   const getAgeMessage = () => {
     if (!pet) return null;
     const years = parseInt(pet.ageYears || '0');
@@ -61,22 +94,22 @@ const PetCare: React.FC = () => {
 
     if (totalMonths === 4 || totalMonths === 5) {
       return {
-        title: "🌟 Special Milestone: 4-5 Months Phase",
-        content: `Your ${pet.species} is currently in a critical developmental stage! At ${totalMonths} months, expect significant teething behavior. Focus on gentle socialization, consistent potty training, and switching to high-protein juvenile food if you haven't already. Watch out for 'fear periods'—keep training positive and patient!`,
+        title: "🌟 Milestone: 4-5 Months Phase",
+        content: `Your ${pet.species} is in a critical developmental stage! Expect significant teething. Focus on gentle socialization and potty training.`,
         icon: Baby,
         color: "bg-amber-100 border-amber-200 text-amber-900"
       };
     } else if (totalMonths < 4) {
       return {
         title: "🍼 Early Development",
-        content: "Young pets need lots of sleep and small, frequent meals. Focus on bond-building and basic safety.",
+        content: "Young pets need frequent meals and plenty of sleep. Focus on safety and bonding.",
         icon: Heart,
         color: "bg-indigo-50 border-indigo-100 text-indigo-900"
       };
     } else {
       return {
         title: "🐕 Growing Up Strong",
-        content: "Maintain a steady exercise routine and watch for adult behavioral changes. Annual checkups are key!",
+        content: "Maintain exercise routines and watch for adult behavior changes. Annual checkups are key!",
         icon: CheckCircle,
         color: "bg-emerald-50 border-emerald-100 text-emerald-900"
       };
@@ -122,7 +155,7 @@ const PetCare: React.FC = () => {
           <div className="p-10 text-center relative z-10">
             <div className="mb-10 relative inline-block">
                <div className={`w-56 h-56 rounded-[5rem] bg-indigo-50 border-4 border-white shadow-2xl overflow-hidden mx-auto transition-all duration-500 ${isAnimating ? 'scale-110 rotate-3' : ''}`}>
-                  <img src={`https://picsum.photos/seed/${pet?.name}/600`} alt="Pet" className="w-full h-full object-cover" />
+                  <img src={pet?.avatarUrl || `https://picsum.photos/seed/${pet?.name}/600`} alt="Pet" className="w-full h-full object-cover" />
                </div>
                {isAnimating && (
                  <div className="absolute -top-4 -right-4 bg-white p-4 rounded-full shadow-2xl animate-bounce">
@@ -189,14 +222,47 @@ const PetCare: React.FC = () => {
           </div>
 
           {ageData && (
-            <div className={`p-8 rounded-[3rem] border-2 shadow-sm ${ageData.color} transition-all duration-500 hover:shadow-md`}>
-              <div className="flex items-center gap-4 mb-4">
-                <div className="p-3 bg-white rounded-2xl shadow-sm">
-                  <ageData.icon size={24} className="text-slate-800" />
+            <div className={`p-8 rounded-[3rem] border-2 shadow-sm ${ageData.color} transition-all duration-500 hover:shadow-md overflow-hidden`}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-white rounded-2xl shadow-sm">
+                    <ageData.icon size={24} className="text-slate-800" />
+                  </div>
+                  <h4 className="font-black text-lg leading-tight tracking-tight">{ageData.title}</h4>
                 </div>
-                <h4 className="font-black text-lg leading-tight tracking-tight">{ageData.title}</h4>
               </div>
               <p className="text-sm font-medium leading-relaxed opacity-90">{ageData.content}</p>
+              
+              <button 
+                onClick={fetchMilestones}
+                className="mt-6 w-full flex items-center justify-between p-4 bg-white/30 hover:bg-white/50 rounded-2xl transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <Sparkles size={16} className="text-indigo-600" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Milestone Explorer</span>
+                </div>
+                {showMilestones ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+
+              {showMilestones && (
+                <div className="mt-4 p-4 bg-white/40 rounded-2xl space-y-4 animate-in slide-in-from-top-2">
+                  {isLoadingMilestones ? (
+                    <div className="flex items-center gap-3 py-4">
+                      <Loader2 size={16} className="animate-spin text-indigo-600" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-indigo-900/60">Retrieving Insights...</span>
+                    </div>
+                  ) : (
+                    <ul className="space-y-3">
+                      {milestoneData.map((m, i) => (
+                        <li key={i} className="flex gap-3 text-sm font-medium leading-tight">
+                          <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 mt-1.5 shrink-0" />
+                          {m}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
               
               <div className="mt-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
                  <AlertCircle size={12} />
