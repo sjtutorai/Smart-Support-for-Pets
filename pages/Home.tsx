@@ -22,7 +22,6 @@ import { useAuth } from '../context/AuthContext';
 import { Link } from "react-router-dom";
 import { AppRoutes, PetProfile } from '../types';
 import { STAT_ROUTINE } from '../context/NotificationContext';
-import { getPetsByOwnerId } from '../services/firebase';
 
 const StatCard: React.FC<{ 
   icon: React.ElementType, 
@@ -54,8 +53,8 @@ const Home: React.FC = () => {
   const [activePet, setActivePet] = useState<PetProfile | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   
-  const [appointments, setAppointments] = useState(() => user ? (localStorage.getItem(`ssp_appointments_${user.uid}`) || 'None') : 'None');
-  const [exercise, setExercise] = useState(() => user ? (localStorage.getItem(`ssp_exercise_${user.uid}`) || '0') : '0');
+  const [appointments, setAppointments] = useState(() => localStorage.getItem(`ssp_appointments_${user?.uid}`) || 'None');
+  const [exercise, setExercise] = useState(() => localStorage.getItem(`ssp_exercise_${user?.uid}`) || '0');
   const [editingStat, setEditingStat] = useState<'appointments' | 'exercise' | null>(null);
   const [editValue, setEditValue] = useState('');
 
@@ -69,71 +68,21 @@ const Home: React.FC = () => {
   const currentHour = currentTime.getHours();
 
   useEffect(() => {
-    const loadPets = async () => {
-      if (!user?.uid) return;
-      
-      // 1. Try LocalStorage for instant load
-      const saved = localStorage.getItem(`ssp_pets_${user.uid}`);
-      let hasLocal = false;
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-             setPets(parsed);
-             setActivePet(parsed[0]);
-             hasLocal = true;
-          }
-        } catch (e) {
-          console.error("Local storage parse error", e);
-        }
-      }
-
-      // 2. Fetch from DB if no local data or to ensure sync
-      try {
-        const dbPets = await getPetsByOwnerId(user.uid);
-        if (dbPets.length > 0) {
-          // If we didn't have local data, or if DB has data (source of truth)
-          // We update state. If local existed, this acts as a refresh.
-          setPets(dbPets);
-          // If no active pet selected yet, select first
-          if (!activePet && dbPets.length > 0) {
-            setActivePet(dbPets[0]);
-          } else if (activePet) {
-            // Keep active pet if it still exists in DB
-            const stillExists = dbPets.find(p => p.id === activePet.id);
-            if (stillExists) setActivePet(stillExists);
-            else setActivePet(dbPets[0]);
-          }
-          
-          localStorage.setItem(`ssp_pets_${user.uid}`, JSON.stringify(dbPets));
-        } else if (!hasLocal) {
-          // If DB is empty and no local, explicitly set empty
-          setPets([]);
-          setActivePet(null);
-        }
-      } catch (err) {
-        console.error("Failed to fetch pets from DB:", err);
-      }
-    };
-    
-    loadPets();
-    
-    // Load stats
-    if (user?.uid) {
-        setAppointments(localStorage.getItem(`ssp_appointments_${user.uid}`) || 'None');
-        setExercise(localStorage.getItem(`ssp_exercise_${user.uid}`) || '0');
+    const saved = localStorage.getItem(`ssp_pets_${user?.uid}`);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      setPets(parsed);
+      if (parsed.length > 0) setActivePet(parsed[0]);
     }
   }, [user]);
 
   const saveStat = () => {
-    if (!user?.uid) return;
-    
     if (editingStat === 'appointments') {
       setAppointments(editValue || 'None');
-      localStorage.setItem(`ssp_appointments_${user.uid}`, editValue || 'None');
+      localStorage.setItem(`ssp_appointments_${user?.uid}`, editValue || 'None');
     } else if (editingStat === 'exercise') {
       setExercise(editValue || '0');
-      localStorage.setItem(`ssp_exercise_${user.uid}`, editValue || '0');
+      localStorage.setItem(`ssp_exercise_${user?.uid}`, editValue || '0');
     }
     setEditingStat(null);
     setEditValue('');

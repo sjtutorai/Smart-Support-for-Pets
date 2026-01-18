@@ -71,7 +71,7 @@ const FindFriends: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => { fetchInitialUsers(); }}
+            onClick={fetchInitialUsers}
             className="p-3 bg-white border border-slate-100 rounded-xl text-slate-400 hover:text-theme transition-colors shadow-sm"
             title="Refresh Directory"
           >
@@ -109,12 +109,11 @@ const FindFriends: React.FC = () => {
           <div className="col-span-full py-24 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
             <UserIcon size={48} className="mx-auto text-slate-100 mb-4" />
             <h4 className="font-black text-slate-400 uppercase tracking-widest">No matching guardians found</h4>
-            <p className="text-slate-400 text-xs mt-2">Try refreshing the directory or check your connection.</p>
             <button 
-              onClick={() => { fetchInitialUsers(); }} 
+              onClick={fetchInitialUsers} 
               className="mt-6 text-theme font-black uppercase text-[10px] tracking-widest hover:underline"
             >
-              Manual Sync
+              Try manual sync
             </button>
           </div>
         ) : (

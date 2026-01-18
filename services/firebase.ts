@@ -29,8 +29,7 @@ import {
   deleteDoc,
   writeBatch,
   orderBy,
-  startAfter,
-  documentId
+  startAfter
 } from 'firebase/firestore';
 import type { QueryDocumentSnapshot } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -177,21 +176,21 @@ export const getAllUsers = async (count: number = 100): Promise<AppUser[]> => {
   }
 };
 
-// Fetch paginated users - uses documentId() for reliable ordering
+// Fetch paginated users - uses 'uid' for reliable ordering without custom indices
 export const getUsersPaginated = async (pageSize: number, lastDoc: QueryDocumentSnapshot | null = null) => {
   try {
     let q;
     if (lastDoc) {
       q = query(
         collection(db, "users"), 
-        orderBy(documentId()), 
+        orderBy("uid"), 
         startAfter(lastDoc), 
         limit(pageSize)
       );
     } else {
-      // Simplified query for initial fetch to ensure data comes back
       q = query(
         collection(db, "users"), 
+        orderBy("uid"), 
         limit(pageSize)
       );
     }
