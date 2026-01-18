@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from "react-router-dom";
 import { useAuth } from '../context/AuthContext';
@@ -7,7 +8,7 @@ import { syncPetToDb, getPetById } from '../services/firebase';
 import jsQR from 'jsqr';
 import { 
   Dog, Plus, PawPrint, Camera, CheckCircle2, Bird, Fish, Thermometer,  
-  Trash2, Stethoscope, Brain, Wand2, Scan, X, Syringe, TrendingUp, Loader2, QrCode, ArrowRight, Palette, Sparkles
+  Trash2, Stethoscope, Brain, Wand2, Scan, X, Syringe, TrendingUp, Loader2, QrCode, ArrowRight, Palette, Sparkles, Bot, AlertTriangle
 } from 'lucide-react';
 import { PetProfile, WeightRecord, VaccinationRecord, AppRoutes } from '../types';
 
@@ -58,6 +59,8 @@ const PetProfilePage: React.FC = () => {
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
   const [showStyleModal, setShowStyleModal] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [healthInsight, setHealthInsight] = useState<string | null>(null);
   const [step, setStep] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const [newPet, setNewPet] = useState<Partial<PetProfile>>({ name: '', breed: '', birthday: '', bio: '', species: 'Dog', weightHistory: [], vaccinations: [] });
@@ -150,6 +153,43 @@ const PetProfilePage: React.FC = () => {
     await savePetsToStorage(updatedPets);
     setSelectedPet(updatedPet);
     addNotification('Record Deleted', 'Health log removed.', 'info');
+  };
+
+  const handleAnalyzeHealth = async () => {
+    if (!selectedPet) return;
+    setIsAnalyzing(true);
+    setHealthInsight(null);
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const weightData = selectedPet.weightHistory.map(w => `${w.date}: ${w.weight}kg`).join(', ');
+      const vaxData = selectedPet.vaccinations.map(v => `${v.name} on ${v.date} (next due: ${v.nextDueDate})`).join(', ');
+
+      const prompt = `Analyze the health records for a ${selectedPet.species} (${selectedPet.breed}).
+      Age: ${selectedPet.ageYears} years and ${selectedPet.ageMonths} months.
+      Weight History: ${weightData || 'None recorded'}
+      Vaccinations: ${vaxData || 'None recorded'}
+      
+      Please provide:
+      1. A summary of their health status based on weight trends.
+      2. Tailored preventative care recommendations.
+      3. Specific advice based on their species and breed.
+      
+      Keep the response professional, encouraging, and under 200 words. Use clear structure.`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+      });
+
+      setHealthInsight(response.text);
+      addNotification('Insights Generated', 'AI has analyzed the health records.', 'success');
+    } catch (err) {
+      console.error("AI Insight error:", err);
+      addNotification('Analysis Failed', 'Could not generate health insights.', 'error');
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const generateAIAvatar = async (styleId: string, base64Source?: string) => {
@@ -268,7 +308,7 @@ const PetProfilePage: React.FC = () => {
         {pets.map(p => (
           <button 
             key={p.id} 
-            onClick={() => { setSelectedPet(p); setIsAdding(false); }} 
+            onClick={() => { setSelectedPet(p); setIsAdding(false); setHealthInsight(null); }} 
             className={`flex items-center gap-3 px-5 py-3 rounded-2xl border-2 transition-all shrink-0 ${selectedPet?.id === p.id && !isAdding ? 'bg-theme-light border-theme shadow-sm scale-105' : 'bg-white border-transparent hover:bg-slate-50'}`}
           >
             <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">
@@ -402,29 +442,30 @@ const PetProfilePage: React.FC = () => {
             </div>
           </div>
 
-          <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 border border-slate-50 shadow-sm min-h-[400px] flex flex-col">
-             <div className="flex items-center justify-between mb-8">
-               <div className="flex items-center gap-4">
-                 <div className="p-3 bg-slate-900 text-theme rounded-xl shadow-md"><Brain size={24} /></div>
-                 <div>
-                   <h4 className="font-black text-xl text-slate-900 leading-none">Health Intelligence</h4>
-                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Medical records & AI Insights</p>
+          <div className="lg:col-span-2 space-y-8">
+            <div className="bg-white rounded-[2.5rem] p-8 border border-slate-50 shadow-sm flex flex-col">
+               <div className="flex items-center justify-between mb-8">
+                 <div className="flex items-center gap-4">
+                   <div className="p-3 bg-slate-900 text-theme rounded-xl shadow-md"><Brain size={24} /></div>
+                   <div>
+                     <h4 className="font-black text-xl text-slate-900 leading-none">Health Intelligence</h4>
+                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Medical records & AI Insights</p>
+                   </div>
+                 </div>
+                 <div className="flex gap-2">
+                   <button onClick={() => setIsAddingRecord('weight')} className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">+ Log Weight</button>
+                   <button onClick={() => setIsAddingRecord('vaccine')} className="px-4 py-2 bg-theme text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-theme/10 hover:bg-theme-hover">+ Add Vaccine</button>
                  </div>
                </div>
-               <div className="flex gap-2">
-                 <button onClick={() => setIsAddingRecord('weight')} className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">+ Log Weight</button>
-                 <button onClick={() => setIsAddingRecord('vaccine')} className="px-4 py-2 bg-theme text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-theme/10 hover:bg-theme-hover">+ Add Vaccine</button>
-               </div>
-             </div>
 
-             {isAddingRecord ? (
-               <form onSubmit={handleAddRecord} className="flex-1 bg-slate-50/50 rounded-3xl p-8 border border-slate-100 space-y-6 animate-in slide-in-from-top-4">
-                 <div className="flex items-center justify-between mb-2">
-                   <h5 className="font-black text-slate-800 text-sm uppercase tracking-widest">Add {isAddingRecord === 'vaccine' ? 'Vaccination' : 'Weight Entry'}</h5>
-                   <button type="button" onClick={() => setIsAddingRecord(null)}><X size={16} className="text-slate-400" /></button>
-                 </div>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <input type="date" required value={newRecord.date} onChange={e => setNewRecord({...newRecord, date: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
+               {isAddingRecord ? (
+                 <form onSubmit={handleAddRecord} className="flex-1 bg-slate-50/50 rounded-3xl p-8 border border-slate-100 space-y-6 animate-in slide-in-from-top-4">
+                   <div className="flex items-center justify-between mb-2">
+                     <h5 className="font-black text-slate-800 text-sm uppercase tracking-widest">Add {isAddingRecord === 'vaccine' ? 'Vaccination' : 'Weight Entry'}</h5>
+                     <button type="button" onClick={() => setIsAddingRecord(null)}><X size={16} className="text-slate-400" /></button>
+                   </div>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <input type="date" required value={newRecord.date} onChange={e => setNewRecord({...newRecord, date: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
                    {isAddingRecord === 'vaccine' ? (
                      <>
                        <input required placeholder="Vaccine Name" value={newRecord.name} onChange={e => setNewRecord({...newRecord, name: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
@@ -473,6 +514,35 @@ const PetProfilePage: React.FC = () => {
                   <button onClick={() => setIsAddingRecord('vaccine')} className="mt-6 text-theme font-black text-[10px] uppercase tracking-widest hover:underline">+ Add First Record</button>
                </div>
              )}
+
+             {/* AI Insights Section */}
+             <div className="mt-8 pt-8 border-t border-slate-50">
+                <button 
+                  onClick={handleAnalyzeHealth}
+                  disabled={isAnalyzing || (!selectedPet.vaccinations?.length && !selectedPet.weightHistory?.length)}
+                  className="w-full flex items-center justify-center gap-3 bg-slate-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl disabled:opacity-50 active:scale-[0.98]"
+                >
+                  {isAnalyzing ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} className="text-theme" />}
+                  Generate Health Insights
+                </button>
+
+                {healthInsight && (
+                  <div className="mt-6 p-6 bg-theme-light rounded-3xl border border-theme/10 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-theme text-white rounded-lg">
+                        <Bot size={16} />
+                      </div>
+                      <h5 className="font-black text-slate-800 text-[10px] uppercase tracking-widest">Tailored Health Recommendations</h5>
+                    </div>
+                    <div className="prose prose-sm max-w-none text-slate-600 font-medium leading-relaxed whitespace-pre-wrap">
+                      {healthInsight}
+                    </div>
+                    <div className="mt-4 flex items-center gap-2 text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                      <AlertTriangle size={10} className="text-amber-500" /> AI-generated guidance. Always verify with your local vet.
+                    </div>
+                  </div>
+                )}
+             </div>
           </div>
         </div>
       ) : (
