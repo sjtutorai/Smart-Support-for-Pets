@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from "react-router-dom";
 import { useAuth } from '../context/AuthContext';
@@ -103,18 +102,25 @@ const PetProfilePage: React.FC = () => {
     if (!user) return;
     const id = `SSP-${Date.now()}`;
     const { years, months } = calculateAge(newPet.birthday || '');
+    
     const completePet: PetProfile = { 
-        ...newPet as PetProfile, 
         id, 
         ownerId: user.uid, 
         ownerName: user.displayName || 'Parent', 
+        name: newPet.name || 'Unnamed',
+        species: newPet.species || 'Dog',
+        breed: newPet.breed || 'Mixed Breed',
+        birthday: newPet.birthday || '',
+        bio: newPet.bio || '',
+        temperament: newPet.temperament || '',
         ageYears: String(years), 
         ageMonths: String(months), 
         weightHistory: [], 
         vaccinations: [], 
         isPublic: false,
-        lowercaseName: newPet.name?.toLowerCase() || ''
+        lowercaseName: (newPet.name || '').toLowerCase()
     };
+    
     const updatedPets = [...pets, completePet];
     await savePetsToStorage(updatedPets);
     setSelectedPet(completePet);

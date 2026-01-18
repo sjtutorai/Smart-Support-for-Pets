@@ -97,7 +97,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
             {!isCollapsed && (
               <div className="flex flex-col animate-in fade-in slide-in-from-left-4 duration-500">
                 <span className="font-black text-slate-900 tracking-tighter text-xl whitespace-nowrap">
-                  Paw Pal
+                  SS Paw Pal
                 </span>
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] -mt-1">System Interface</span>
               </div>
