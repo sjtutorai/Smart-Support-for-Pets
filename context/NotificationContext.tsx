@@ -1,18 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { db } from '../services/firebase';
-import { 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  onSnapshot, 
-  addDoc, 
-  serverTimestamp, 
-  updateDoc, 
-  doc, 
-  limit 
-} from 'firebase/firestore';
+// FIX: import 'limit' from firestore
+import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, limit } from 'firebase/firestore';
 import { AppNotification } from '../types';
 
 interface NotificationContextType {
@@ -25,6 +15,7 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
+// FIX: Add missing STAT_ROUTINE export used in Home.tsx
 export const STAT_ROUTINE = [
   { id: 1, task: 'Morning Walk', timeLabel: '07:00 AM - 08:00 AM', startHour: 7, endHour: 8 },
   { id: 2, task: 'Breakfast Time', timeLabel: '08:00 AM - 09:00 AM', startHour: 8, endHour: 9 },
@@ -40,6 +31,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
+  // Listen for real-time notifications from Firestore
   useEffect(() => {
     if (!user) {
       setNotifications([]);
@@ -49,7 +41,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const q = query(
       collection(db, "notifications"),
       where("userId", "==", user.uid),
-      orderBy("timestamp", "desc"),
+      orderBy("createdAt", "desc"),
       limit(20)
     );
 
@@ -69,8 +61,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const addNotification = useCallback(async (title: string, message: string, type: AppNotification['type'] = 'info') => {
-    if (!user) return; 
+    if (!user) return; // Can't send notification if no user is logged in
     
+    // This function is now for creating local/system notifications that need to be stored for the current user
     try {
       await addDoc(collection(db, "notifications"), {
         userId: user.uid,
@@ -78,7 +71,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         message,
         type,
         read: false,
-        timestamp: serverTimestamp(),
+        createdAt: serverTimestamp(),
       });
     } catch (error) {
       console.error("Failed to add notification:", error);
@@ -87,8 +80,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const markAsRead = async (id: string) => {
     if (!user) return;
+    const notifRef = doc(db, "notifications", id);
     try {
-      const notifRef = doc(db, "notifications", id);
       await updateDoc(notifRef, { read: true });
     } catch (error) {
       console.error("Failed to mark notification as read:", error);
@@ -97,7 +90,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   
   const clearAll = async () => {
     if (!user) return;
+    // For simplicity, we'll just clear the local state. A real implementation might batch delete.
     setNotifications([]);
+    // This is a complex operation on the backend, for now, we remove them visually.
   };
 
   return (

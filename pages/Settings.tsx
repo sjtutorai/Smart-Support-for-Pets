@@ -11,14 +11,12 @@ import {
   Phone, 
   Palette,
   Plus,
-  Check,
-  LayoutDashboard
+  Check
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { db, updateUserProfile, isUsernameTaken } from '../services/firebase';
-import { doc, getDoc } from 'firebase/firestore';
-import UploadProfilePicture from '../components/UploadProfilePicture';
+import { doc, getDoc } from "firebase/firestore";
 
 const THEME_PRESETS = [
   { name: 'Indigo', color: '#4f46e5' },
@@ -30,13 +28,6 @@ const THEME_PRESETS = [
   { name: 'Sunset', color: '#f97316' },
 ];
 
-const SURFACE_PRESETS = [
-  { name: 'Deep Slate', color: '#0f172a' },
-  { name: 'Charcoal', color: '#334155' },
-  { name: 'Midnight', color: '#1e293b' },
-  { name: 'Deep Indigo', color: '#1e1b4b' },
-];
-
 const Settings: React.FC = () => {
   const { user } = useAuth();
   const { addNotification } = useNotifications();
@@ -46,8 +37,8 @@ const Settings: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('ssp_theme_color') || '#4f46e5');
-  const [currentSurface, setCurrentSurface] = useState(() => localStorage.getItem('ssp_surface_color') || '#334155');
   
+  // Username Validation States
   const [isValidatingUsername, setIsValidatingUsername] = useState(false);
   const [usernameTakenStatus, setUsernameTakenStatus] = useState<'available' | 'taken' | 'none'>('none');
 
@@ -61,15 +52,15 @@ const Settings: React.FC = () => {
     const fetchUserData = async () => {
       if (user) {
         try {
-          const userDocRef = doc(db, "users", user.uid);
-          const docSnap = await getDoc(userDocRef);
+          const docRef = doc(db, "users", user.uid);
+          const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             const data = docSnap.data();
             setDbUser(data);
             setEditData({
-              displayName: data?.displayName || user.displayName || '',
-              username: data?.username || '',
-              phoneNumber: data?.phoneNumber || ''
+              displayName: data.displayName || user.displayName || '',
+              username: data.username || '',
+              phoneNumber: data.phoneNumber || ''
             });
           }
         } catch (e) {
@@ -80,6 +71,7 @@ const Settings: React.FC = () => {
     fetchUserData();
   }, [user]);
 
+  // Debounced Username Validation
   useEffect(() => {
     if (!isEditing || !editData.username || editData.username === dbUser?.username) {
       setIsValidatingUsername(false);
@@ -110,14 +102,6 @@ const Settings: React.FC = () => {
     root.style.setProperty('--theme-color-light', color + '15');
     localStorage.setItem('ssp_theme_color', color);
     addNotification('Primary Color Updated', 'Branding preferences updated.', 'success');
-  };
-
-  const changeSurface = (color: string) => {
-    setCurrentSurface(color);
-    const root = document.documentElement;
-    root.style.setProperty('--theme-surface', color);
-    localStorage.setItem('ssp_surface_color', color);
-    addNotification('Surface Color Updated', 'Interface aesthetic updated.', 'success');
   };
 
   const handleSaveProfile = async () => {
@@ -160,9 +144,10 @@ const Settings: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto pb-32 space-y-12 animate-fade-in">
+      {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
         <div className="space-y-2">
-          <div className="inline-flex px-4 py-1.5 bg-theme-light text-theme rounded-full text-xs font-black uppercase tracking-widest mb-2 transition-theme">Aesthetic Hub</div>
+          <div className="inline-flex px-4 py-1.5 bg-theme-light text-theme rounded-full text-xs font-black uppercase tracking-widest mb-2 transition-theme">Account Hub</div>
           <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Profile Settings</h2>
         </div>
         
@@ -176,21 +161,38 @@ const Settings: React.FC = () => {
       </div>
 
       <div className="space-y-10">
+        {/* Profile Card */}
         <div className="bg-white rounded-[4rem] p-10 md:p-20 border border-slate-50 shadow-2xl space-y-16 relative overflow-hidden transition-all duration-700">
           <div className="flex flex-col lg:flex-row items-center justify-center lg:items-start gap-16 lg:gap-24">
             
-            <div className="w-full lg:w-72 space-y-8 shrink-0">
-               <UploadProfilePicture />
-               {!isEditing && (
+            {/* Avatar Area */}
+            <div className="relative group shrink-0">
+              <div className="w-56 h-56 rounded-[3.5rem] bg-theme-light flex flex-col items-center justify-center overflow-hidden border-4 border-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] transition-all duration-500 group-hover:scale-105">
+                {user?.photoURL ? (
+                  <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <UserIcon size={96} className="text-theme opacity-20" />
+                )}
+                <div className="mt-2 text-center">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-theme/60">@{dbUser?.username || 'user'}</p>
+                </div>
+                {isEditing && (
+                  <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                    <Edit3 size={32} className="text-white" />
+                  </div>
+                )}
+              </div>
+              {!isEditing && (
                 <button 
                   onClick={() => setIsEditing(true)}
-                  className="w-full bg-theme text-white px-8 py-4 rounded-2xl shadow-xl font-black uppercase text-xs tracking-widest hover:bg-theme-hover transition-all active:scale-95"
+                  className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-white px-8 py-3 rounded-full shadow-xl border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-theme transition-all whitespace-nowrap active:scale-95"
                 >
-                  Edit Information
+                  Edit Profile
                 </button>
               )}
             </div>
 
+            {/* Fields Area */}
             <div className="flex-1 w-full max-w-xl space-y-12">
               <div className="space-y-10">
                 <div className="space-y-3">
@@ -298,80 +300,55 @@ const Settings: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-sm space-y-12">
-                <div className="flex items-center gap-5">
-                    <div className="p-4 bg-theme-light text-theme rounded-[2rem] transition-theme shadow-sm">
-                        <Palette size={28} />
-                    </div>
-                    <div>
-                        <h3 className="text-xl font-black text-slate-900 tracking-tight leading-tight">Brand Highlight</h3>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Primary UI Accents</p>
-                    </div>
-                </div>
-
-                <div className="flex flex-wrap gap-4">
-                    {THEME_PRESETS.map((theme) => (
-                    <button
-                        key={theme.color}
-                        onClick={() => changeTheme(theme.color)}
-                        className={`group relative flex flex-col items-center gap-2 p-2 rounded-[2rem] transition-all duration-300 ${
-                        currentTheme === theme.color ? 'bg-slate-50 ring-2 ring-slate-100 scale-105' : 'hover:bg-slate-50'
-                        }`}
-                    >
-                        <div 
-                        className={`w-12 h-12 rounded-[1.25rem] shadow-lg transition-all duration-500 flex items-center justify-center`}
-                        style={{ backgroundColor: theme.color }}
-                        >
-                        {currentTheme === theme.color && <Check size={24} className="text-white animate-in zoom-in" />}
-                        </div>
-                    </button>
-                    ))}
-                    <label className="group relative flex flex-col items-center gap-3 p-2 rounded-[2.5rem] hover:bg-slate-50 cursor-pointer transition-all">
-                        <div className="w-12 h-12 rounded-[1.25rem] shadow-lg bg-gradient-to-tr from-rose-500 via-indigo-500 to-emerald-500 flex items-center justify-center transition-all group-hover:rotate-12">
-                            <Plus size={24} className="text-white" />
-                        </div>
-                        <input type="color" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => changeTheme(e.target.value)} />
-                    </label>
-                </div>
+        {/* Theme Picker - Primary Color Only */}
+        <div className="bg-white rounded-[3.5rem] p-10 md:p-14 border border-slate-100 shadow-sm space-y-12">
+          <div className="flex items-center gap-5">
+            <div className="p-4 bg-theme-light text-theme rounded-[2rem] transition-theme shadow-sm">
+              <Palette size={28} />
             </div>
-
-            <div className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-sm space-y-12">
-                <div className="flex items-center gap-5">
-                    <div className="p-4 bg-slate-900 text-white rounded-[2rem] transition-theme shadow-sm">
-                        <LayoutDashboard size={28} />
-                    </div>
-                    <div>
-                        <h3 className="text-xl font-black text-slate-900 tracking-tight leading-tight">Surface Aesthetic</h3>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sidebar & Layout Base</p>
-                    </div>
-                </div>
-
-                <div className="flex flex-wrap gap-4">
-                    {SURFACE_PRESETS.map((surf) => (
-                    <button
-                        key={surf.color}
-                        onClick={() => changeSurface(surf.color)}
-                        className={`group relative flex flex-col items-center gap-2 p-2 rounded-[2rem] transition-all duration-300 ${
-                        currentSurface === surf.color ? 'bg-slate-50 ring-2 ring-slate-100 scale-105' : 'hover:bg-slate-50'
-                        }`}
-                    >
-                        <div 
-                        className={`w-12 h-12 rounded-[1.25rem] shadow-lg transition-all duration-500 flex items-center justify-center`}
-                        style={{ backgroundColor: surf.color }}
-                        >
-                        {currentSurface === surf.color && <Check size={24} className="text-white animate-in zoom-in" />}
-                        </div>
-                    </button>
-                    ))}
-                    <label className="group relative flex flex-col items-center gap-3 p-2 rounded-[2.5rem] hover:bg-slate-50 cursor-pointer transition-all">
-                        <div className="w-12 h-12 rounded-[1.25rem] shadow-lg bg-slate-200 flex items-center justify-center transition-all group-hover:rotate-12">
-                            <Plus size={24} className="text-slate-400" />
-                        </div>
-                        <input type="color" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => changeSurface(e.target.value)} />
-                    </label>
-                </div>
+            <div>
+              <h3 className="text-3xl font-black text-slate-900 tracking-tight">Primary Brand Color</h3>
+              <p className="text-slate-500 font-medium">Customize your primary workspace accent.</p>
             </div>
+          </div>
+
+          <div className="flex flex-wrap gap-6 justify-center md:justify-start">
+            {THEME_PRESETS.map((theme) => (
+              <button
+                key={theme.color}
+                onClick={() => changeTheme(theme.color)}
+                className={`group relative flex flex-col items-center gap-3 p-3 rounded-[2.5rem] transition-all duration-300 ${
+                  currentTheme === theme.color ? 'bg-slate-50 ring-2 ring-slate-100 scale-105 shadow-xl' : 'hover:bg-slate-50'
+                }`}
+              >
+                <div 
+                  className={`w-16 h-16 rounded-[2rem] shadow-lg transition-all duration-500 flex items-center justify-center ${
+                    currentTheme === theme.color ? 'scale-110' : ''
+                  }`}
+                  style={{ backgroundColor: theme.color }}
+                >
+                  {currentTheme === theme.color && <Check size={32} className="text-white animate-in zoom-in" />}
+                </div>
+                <span className={`text-[10px] font-black uppercase tracking-widest ${
+                  currentTheme === theme.color ? 'text-theme' : 'text-slate-400'
+                }`}>
+                  {theme.name}
+                </span>
+              </button>
+            ))}
+            
+            <label className="group relative flex flex-col items-center gap-3 p-3 rounded-[2.5rem] hover:bg-slate-50 cursor-pointer transition-all">
+              <div className="w-16 h-16 rounded-[2rem] shadow-lg bg-gradient-to-tr from-rose-500 via-indigo-500 to-emerald-500 flex items-center justify-center transition-all group-hover:rotate-12">
+                <Plus size={32} className="text-white" />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Custom</span>
+              <input 
+                type="color" 
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                onChange={(e) => changeTheme(e.target.value)}
+              />
+            </label>
+          </div>
         </div>
       </div>
     </div>

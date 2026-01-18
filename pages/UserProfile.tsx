@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getUserByUsername, getUserById, getPetsByOwnerId, startChat, getFollowStatus } from '../services/firebase';
+import { getUserByUsername, getPetsByOwnerId, startChat, getFollowStatus } from '../services/firebase';
 import { PetProfile, User, FollowStatus } from '../types';
 import { Loader2, User as UserIcon, AtSign, PawPrint, MessageSquare, Lock, Phone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -26,16 +26,7 @@ const UserProfile: React.FC = () => {
             try {
                 setLoading(true);
                 setError('');
-                
-                // Try fetching by username (handle) first
-                let userData = await getUserByUsername(username);
-                
-                // If not found by username, try fetching by ID (UID)
-                // This is important because many links in the feed use user.uid
-                if (!userData) {
-                    userData = await getUserById(username);
-                }
-
+                const userData = await getUserByUsername(username);
                 if (userData) {
                     setUser(userData);
                     const status = await getFollowStatus(currentUser.uid, userData.uid);
@@ -74,16 +65,7 @@ const UserProfile: React.FC = () => {
     }
 
     if (error) {
-        return (
-            <div className="text-center py-32">
-                <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                    <UserIcon size={40} className="text-slate-200" />
-                </div>
-                <h2 className="text-3xl font-black text-slate-800 tracking-tight">{error}</h2>
-                <p className="text-slate-500 mt-2 font-medium">The guardian you are looking for does not exist in our directory.</p>
-                <Link to={AppRoutes.HOME} className="inline-block mt-8 text-theme font-black uppercase text-xs tracking-widest hover:underline">Return to Hub</Link>
-            </div>
-        );
+        return <div className="text-center py-20"><UserIcon size={48} className="mx-auto text-slate-200 mb-4" /><h2 className="text-2xl font-bold text-slate-700">{error}</h2></div>;
     }
 
     if (!user) return null;

@@ -1,4 +1,4 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
   signOut, 
@@ -9,9 +9,9 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
-  sendEmailVerification
-} from 'firebase/auth';
-import type { User as FirebaseUser } from 'firebase/auth';
+  sendEmailVerification,
+  User as FirebaseUser 
+} from "firebase/auth";
 import { 
   getFirestore, 
   doc, 
@@ -27,13 +27,9 @@ import {
   serverTimestamp, 
   onSnapshot,
   deleteDoc,
-  writeBatch,
-  orderBy,
-  startAfter
-} from 'firebase/firestore';
-import type { QueryDocumentSnapshot } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
-import { User as AppUser, PetProfile, FollowStatus } from '../types';
+  writeBatch
+} from "firebase/firestore";
+import { User, PetProfile, FollowStatus } from '../types';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCVUMhFhDzfbvF-iXthH6StOlI6mJreTmA",
@@ -45,13 +41,11 @@ const firebaseConfig = {
   appId: "1:737739952686:web:17ecad5079401fb6ee05bf"
 };
 
-// Initialize Firebase
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
 
-// Check if username is already in use
+// ... (user management functions like isUsernameTaken, syncUserToDb, etc. remain the same)
 export const isUsernameTaken = async (username: string, excludeUid: string) => {
   if (!username) return false;
   try {
@@ -64,20 +58,19 @@ export const isUsernameTaken = async (username: string, excludeUid: string) => {
     if (querySnapshot.empty) return false;
     return querySnapshot.docs[0].id !== excludeUid;
   } catch (err: any) {
+    console.warn("Username availability check skipped (likely permissions):", err.message);
     return false; 
   }
 };
-
-// Sync auth user data to Firestore
 export const syncUserToDb = async (user: FirebaseUser, extraData: any = {}) => {
   const userRef = doc(db, "users", user.uid);
-  const displayName = extraData.displayName || user.displayName || user.email?.split('@')[0] || 'Pet Parent';
+  const displayName = extraData.displayName || user.displayName || 'Pet Parent';
   const data = {
     uid: user.uid,
     email: user.email,
     displayName: displayName,
     photoURL: user.photoURL || null,
-    username: (extraData.username || user.displayName?.toLowerCase().replace(/\s/g, '') || user.uid.slice(0, 8)).toLowerCase(),
+    username: extraData.username || user.displayName?.toLowerCase().replace(/\s/g, '') || user.uid.slice(0, 8),
     lastLogin: new Date().toISOString(),
     lowercaseDisplayName: displayName.toLowerCase(),
     ...extraData
@@ -87,31 +80,10 @@ export const syncUserToDb = async (user: FirebaseUser, extraData: any = {}) => {
     await setDoc(userRef, data, { merge: true });
     return data;
   } catch (err) {
+    console.error("Firestore sync failed:", err);
     return data;
   }
 };
-
-// Update existing user profile in Firestore
-export const updateUserProfile = async (uid: string, data: any) => {
-  const userRef = doc(db, "users", uid);
-  const updateData = {
-    ...data,
-    updatedAt: serverTimestamp()
-  };
-  if (data.displayName) {
-    updateData.lowercaseDisplayName = data.displayName.toLowerCase();
-  }
-  await updateDoc(userRef, updateData);
-};
-
-// Resend email verification
-export const resendVerificationEmail = async () => {
-  if (auth.currentUser) {
-    await sendEmailVerification(auth.currentUser);
-  }
-};
-
-// Sync pet profile to Firestore
 export const syncPetToDb = async (pet: any) => {
   const petRef = doc(db, "pets", pet.id);
   await setDoc(petRef, {
@@ -120,217 +92,167 @@ export const syncPetToDb = async (pet: any) => {
     updatedAt: serverTimestamp()
   }, { merge: true });
 };
-
-// Delete pet profile from Firestore
-export const deletePet = async (petId: string) => {
-  if (!petId) return;
-  await deleteDoc(doc(db, "pets", petId));
-};
-
-// Fetch pet by ID
 export const getPetById = async (id: string) => {
   if (!id) return null;
   const petRef = doc(db, "pets", id);
   const snap = await getDoc(petRef);
   return snap.exists() ? { id: snap.id, ...snap.data() } as PetProfile : null;
 };
-
-// Fetch user by ID
 export const getUserById = async (id: string) => {
   if (!id) return null;
   const userRef = doc(db, "users", id);
   const snap = await getDoc(userRef);
-  return snap.exists() ? { uid: snap.id, ...snap.data() } as AppUser : null;
+  return snap.exists() ? { uid: snap.id, ...snap.data() } as User : null;
 };
-
-// Fetch user by username
-export const getUserByUsername = async (username: string): Promise<AppUser | null> => {
+export const getUserByUsername = async (username: string): Promise<User | null> => {
   if (!username) return null;
-  const q = query(
-    collection(db, "users"), 
-    where("username", "==", username.toLowerCase().trim()), 
-    limit(1)
-  );
+  const lowerCaseUsername = username.toLowerCase().trim();
+  const q = query(collection(db, "users"), where("username", "==", lowerCaseUsername), limit(1));
   const querySnapshot = await getDocs(q);
   if (querySnapshot.empty) return null;
-  return { uid: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as AppUser;
+  const userDoc = querySnapshot.docs[0];
+  return { uid: userDoc.id, ...userDoc.data() } as User;
 };
-
-// Fetch pets owned by a specific user
 export const getPetsByOwnerId = async (ownerId: string): Promise<PetProfile[]> => {
   if (!ownerId) return [];
-  const q = query(collection(db, "pets"), where("ownerId", "==", ownerId));
+  const q = query(collection(db, "pets"), where("ownerId", "==", ownerId), limit(10));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as PetProfile);
 };
-
-// Fetch all users with a limit
-export const getAllUsers = async (count: number = 100): Promise<AppUser[]> => {
-  try {
-    const q = query(collection(db, "users"), limit(count));
-    const usersSnapshot = await getDocs(q);
-    return usersSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }) as AppUser);
-  } catch (err) {
-    console.error("Firebase fetch all users failed:", err);
-    return [];
-  }
+export const getAllUsers = async (): Promise<User[]> => {
+  const usersCollection = collection(db, "users");
+  const usersSnapshot = await getDocs(usersCollection);
+  return usersSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }) as User);
 };
-
-// Fetch paginated users - uses 'uid' for reliable ordering without custom indices
-export const getUsersPaginated = async (pageSize: number, lastDoc: QueryDocumentSnapshot | null = null) => {
-  try {
-    let q;
-    if (lastDoc) {
-      q = query(
-        collection(db, "users"), 
-        orderBy("uid"), 
-        startAfter(lastDoc), 
-        limit(pageSize)
-      );
-    } else {
-      q = query(
-        collection(db, "users"), 
-        orderBy("uid"), 
-        limit(pageSize)
-      );
-    }
-    
-    const snapshot = await getDocs(q);
-    const users = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }) as AppUser);
-    
-    return {
-      users,
-      lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,
-      hasMore: snapshot.docs.length === pageSize
-    };
-  } catch (err) {
-    console.error("Firebase paginated fetch failed:", err);
-    return { users: [], lastDoc: null, hasMore: false };
-  }
+export const searchPetsAndOwners = async (searchText: string): Promise<{ pet: PetProfile, owner: User | null }[]> => {
+  if (!searchText.trim()) return [];
+  const lowerCaseSearch = searchText.toLowerCase();
+  const petsQuery = query(collection(db, "pets"), where("lowercaseName", ">=", lowerCaseSearch), where("lowercaseName", "<=", lowerCaseSearch + '\uf8ff'), limit(10));
+  const ownersQuery = query(collection(db, "users"), where("lowercaseDisplayName", ">=", lowerCaseSearch), where("lowercaseDisplayName", "<=", lowerCaseSearch + '\uf8ff'), limit(10));
+  const [petsSnapshot, ownersSnapshot] = await Promise.all([getDocs(petsQuery), getDocs(ownersQuery)]);
+  const resultsMap = new Map<string, { pet: PetProfile, owner: User | null }>();
+  const petResults = petsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as PetProfile);
+  for (const pet of petResults) { if (!resultsMap.has(pet.id)) { const owner = pet.ownerId ? await getUserById(pet.ownerId) : null; resultsMap.set(pet.id, { pet, owner }); } }
+  const ownerResults = ownersSnapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id }) as User);
+  for (const owner of ownerResults) { const petsOfOwner = await getPetsByOwnerId(owner.uid); for (const pet of petsOfOwner) { if (!resultsMap.has(pet.id)) { resultsMap.set(pet.id, { pet, owner }); } } }
+  return Array.from(resultsMap.values());
 };
-
-// Login with Google Popup
 export const loginWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account consent' });
   const result = await signInWithPopup(auth, provider);
   if (result.user) await syncUserToDb(result.user);
   return result.user;
 };
-
-// Login with Apple Popup
 export const loginWithApple = async () => {
   const provider = new OAuthProvider('apple.com');
+  provider.addScope('email'); provider.addScope('name');
   const result = await signInWithPopup(auth, provider);
   if (result.user) await syncUserToDb(result.user);
   return result.user;
 };
-
-// Sign out from auth
 export const logout = () => signOut(auth);
-
-// Login with email or username
 export const loginWithIdentifier = async (identifier: string, password: string) => {
   let email = identifier.trim();
   if (!identifier.includes('@')) {
-    const q = query(
-      collection(db, "users"), 
-      where("username", "==", identifier.toLowerCase().trim()), 
-      limit(1)
-    );
+    const q = query(collection(db, "users"), where("username", "==", identifier.toLowerCase().trim()), limit(1));
     const querySnapshot = await getDocs(q);
-    if (!querySnapshot.empty) {
-      email = querySnapshot.docs[0].data().email;
-    }
+    if (!querySnapshot.empty) { const userData = querySnapshot.docs[0].data(); if (userData.email) email = userData.email; }
   }
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
   await syncUserToDb(userCredential.user);
   return userCredential.user;
 };
-
-// Sign up with email, password, and profile data
 export const signUpWithEmail = async (email: string, password: string, fullName: string, username: string) => {
   if (await isUsernameTaken(username, '')) throw { code: 'auth/username-already-in-use' };
   const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
   const user = userCredential.user;
   await updateProfile(user, { displayName: fullName });
+  try { await sendEmailVerification(user); } catch (e) { console.warn("Verification email failed:", e); }
   await syncUserToDb(user, { displayName: fullName, username: username.toLowerCase().trim() });
   return user;
 };
-
-// Start or retrieve a chat session between two users
+export const resendVerificationEmail = async () => {
+  const user = auth.currentUser;
+  if (user && !user.emailVerified) await sendEmailVerification(user);
+};
+export const updateUserProfile = async (uid: string, data: { displayName?: string, username?: string, phoneNumber?: string }) => {
+  const { displayName, username, phoneNumber } = data;
+  if (username && (await isUsernameTaken(username, uid))) throw new Error("Username already taken.");
+  const user = auth.currentUser;
+  if (user && user.uid === uid && displayName && displayName !== user.displayName) await updateProfile(user, { displayName });
+  const userRef = doc(db, "users", uid);
+  const updateData: any = {};
+  if (displayName !== undefined) { updateData.displayName = displayName; updateData.lowercaseDisplayName = displayName.toLowerCase(); }
+  if (username !== undefined) updateData.username = username.toLowerCase().trim();
+  if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
+  if (Object.keys(updateData).length > 0) await updateDoc(userRef, updateData);
+};
 export const startChat = async (currentUserId: string, targetUserId: string): Promise<string> => {
   const participants = [currentUserId, targetUserId].sort();
   const q = query(collection(db, "chats"), where("participants", "==", participants), limit(1));
   const querySnapshot = await getDocs(q);
   if (!querySnapshot.empty) return querySnapshot.docs[0].id;
-  
-  const newChatRef = await addDoc(collection(db, "chats"), { 
-    participants, 
-    lastMessage: '', 
-    createdAt: serverTimestamp(), 
-    lastTimestamp: serverTimestamp() 
-  });
+  const newChatRef = await addDoc(collection(db, "chats"), { participants, lastMessage: '', createdAt: serverTimestamp(), lastTimestamp: serverTimestamp() });
   return newChatRef.id;
 };
-
-// Send a chat message within a session
 export const sendChatMessage = async (chatId: string, senderId: string, text: string) => {
   const chatRef = doc(db, "chats", chatId);
-  await addDoc(collection(chatRef, "messages"), { 
-    senderId, 
-    text, 
-    timestamp: serverTimestamp() 
-  });
-  await updateDoc(chatRef, { 
-    lastMessage: text, 
-    lastTimestamp: serverTimestamp() 
-  });
+  const messagesRef = collection(chatRef, "messages");
+  await addDoc(messagesRef, { senderId, text, timestamp: serverTimestamp() });
+  await updateDoc(chatRef, { lastMessage: text, lastTimestamp: serverTimestamp() });
 };
 
-// Retrieve follow status between two users
+// --- NEW FOLLOW SYSTEM ---
 export const getFollowStatus = async (followerId: string, followingId: string): Promise<FollowStatus> => {
   if (followerId === followingId) return 'is_self';
-  const q = query(
-    collection(db, "follows"), 
-    where("followerId", "==", followerId), 
-    where("followingId", "==", followingId), 
-    limit(1)
-  );
+  const q = query(collection(db, "follows"), where("followerId", "==", followerId), where("followingId", "==", followingId), limit(1));
   const snapshot = await getDocs(q);
   if (snapshot.empty) return 'not_following';
-  return snapshot.docs[0].data().status === 'pending' ? 'pending' : 'following';
+  const followDoc = snapshot.docs[0].data();
+  return followDoc.status === 'pending' ? 'pending' : 'following';
 };
 
-// Request to follow another user
 export const requestFollow = async (followerId: string, followerName: string, followingId: string) => {
-  const followRef = await addDoc(collection(db, "follows"), { 
-    followerId, 
-    followingId, 
-    status: 'pending', 
-    createdAt: serverTimestamp() 
+  const existingStatus = await getFollowStatus(followerId, followingId);
+  if (existingStatus !== 'not_following') return;
+
+  const followRef = await addDoc(collection(db, "follows"), {
+    followerId,
+    followingId,
+    status: 'pending',
+    createdAt: serverTimestamp()
   });
-  await addDoc(collection(db, "notifications"), { 
-    userId: followingId, 
-    type: 'follow_request', 
-    fromUserId: followerId, 
-    fromUserName: followerName, 
-    read: false, 
-    timestamp: serverTimestamp(), 
-    relatedId: followRef.id 
+
+  // Create notification for the user being followed
+  await addDoc(collection(db, "notifications"), {
+    userId: followingId,
+    type: 'follow_request',
+    fromUserId: followerId,
+    fromUserName: followerName,
+    read: false,
+    createdAt: serverTimestamp(),
+    relatedId: followRef.id
   });
 };
 
-// Handle follow request action (accept or decline)
 export const handleFollowRequestAction = async (notificationId: string, followId: string, action: 'accept' | 'decline') => {
   const batch = writeBatch(db);
+  const followRef = doc(db, "follows", followId);
+  const notificationRef = doc(db, "notifications", notificationId);
+
   if (action === 'accept') {
-    batch.update(doc(db, "follows", followId), { status: 'accepted' });
+    batch.update(followRef, { status: 'accepted' });
   } else {
-    batch.delete(doc(db, "follows", followId));
+    batch.delete(followRef);
   }
-  batch.update(doc(db, "notifications", notificationId), { read: true }); 
+  
+  // Mark notification as read and handled
+  batch.update(notificationRef, { read: true }); 
+  
   await batch.commit();
 };
 
+
 export { onAuthStateChanged };
-export type { FirebaseUser, QueryDocumentSnapshot };
+export type { FirebaseUser };
