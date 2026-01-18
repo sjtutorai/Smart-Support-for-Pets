@@ -7,9 +7,9 @@ import { syncPetToDb, getPetById } from '../services/firebase';
 import jsQR from 'jsqr';
 import { 
   Dog, Plus, PawPrint, Camera, CheckCircle2, Bird, Fish, Thermometer,  
-  Trash2, Stethoscope, Brain, Wand2, Scan, X, Syringe, TrendingUp, Loader2, Key
+  Trash2, Stethoscope, Brain, Wand2, Scan, X, Syringe, TrendingUp, Loader2, QrCode, ArrowRight
 } from 'lucide-react';
-import { PetProfile, WeightRecord, VaccinationRecord } from '../types';
+import { PetProfile, WeightRecord, VaccinationRecord, AppRoutes } from '../types';
 
 export const BREED_DATA: Record<string, string[]> = {
   Dog: ['Labrador Retriever', 'German Shepherd', 'Golden Retriever', 'French Bulldog', 'Poodle', 'Beagle', 'Mixed Breed'],
@@ -49,7 +49,6 @@ const PetProfilePage: React.FC = () => {
   const [isAddingRecord, setIsAddingRecord] = useState<'vaccine' | 'weight' | null>(null);
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
-  const [showKeyPrompt, setShowKeyPrompt] = useState(false);
   const [step, setStep] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const [newPet, setNewPet] = useState<Partial<PetProfile>>({ name: '', breed: '', birthday: '', bio: '', species: 'Dog', weightHistory: [], vaccinations: [] });
@@ -91,14 +90,22 @@ const PetProfilePage: React.FC = () => {
         ageMonths: String(months), 
         weightHistory: [], 
         vaccinations: [], 
-        isPublic: false, // Default to private until followed
+        isPublic: false,
         lowercaseName: newPet.name?.toLowerCase() || ''
     };
     const updatedPets = [...pets, completePet];
     await savePetsToStorage(updatedPets);
     setSelectedPet(completePet);
     setSaveSuccess(true);
-    setTimeout(() => { setIsAdding(false); setSaveSuccess(false); setStep(1); }, 1500);
+    
+    // Success UX and Redirect to Dashboard
+    setTimeout(() => { 
+      setIsAdding(false); 
+      setSaveSuccess(false); 
+      setStep(1);
+      addNotification('Success', `${completePet.name} is now registered!`, 'success');
+      navigate(AppRoutes.HOME); // Redirect to dashboard page
+    }, 1800);
   };
 
   const handleAddRecord = async (e: React.FormEvent) => {
@@ -138,10 +145,7 @@ const PetProfilePage: React.FC = () => {
 
   const generateAIAvatar = async (base64Source?: string) => {
     if (!selectedPet) return;
-    
     setIsGeneratingAvatar(true);
-    setShowKeyPrompt(false);
-    
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `A cinematic, ultra-high-quality professional studio avatar portrait of a ${selectedPet.breed} ${selectedPet.species} named ${selectedPet.name}. Detailed fur, vibrant lighting, 4K resolution.`;
@@ -208,10 +212,14 @@ const PetProfilePage: React.FC = () => {
               } else {
                 navigate(`/pet/${petData.id}`);
               }
+            } else {
+              addNotification('No Data', 'The scanned ID does not exist in our registry.', 'warning');
             }
           } catch (err) {
             addNotification('Retrieval Failed', 'Could not verify ID.', 'error');
           }
+        } else {
+          addNotification('Scan Failed', 'No valid QR code found in the image.', 'error');
         }
         setIsScanning(false);
       };
@@ -231,7 +239,7 @@ const PetProfilePage: React.FC = () => {
           <input type="file" ref={qrFileInputRef} className="hidden" accept="image/*" onChange={handleFileScan} />
           <button onClick={handleScanClick} disabled={isScanning} className="flex items-center gap-2 px-6 py-3.5 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm active:scale-95 disabled:opacity-50">
             {isScanning ? <Loader2 size={18} className="animate-spin" /> : <Scan size={18} />} 
-            Upload ID
+            Scan Identity
           </button>
           <button onClick={() => { setStep(1); setIsAdding(true); }} className="flex items-center gap-2 px-6 py-3.5 bg-theme text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-theme-hover transition-all shadow-xl shadow-theme/10 active:scale-95">
             <Plus size={18} /> Register Companion
@@ -243,7 +251,7 @@ const PetProfilePage: React.FC = () => {
         {pets.map(p => (
           <button 
             key={p.id} 
-            onClick={() => { setSelectedPet(p); setIsAdding(false); setShowKeyPrompt(false); }} 
+            onClick={() => { setSelectedPet(p); setIsAdding(false); }} 
             className={`flex items-center gap-3 px-5 py-3 rounded-2xl border-2 transition-all shrink-0 ${selectedPet?.id === p.id && !isAdding ? 'bg-theme-light border-theme shadow-sm scale-105' : 'bg-white border-transparent hover:bg-slate-50'}`}
           >
             <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">
@@ -256,7 +264,15 @@ const PetProfilePage: React.FC = () => {
 
       {isAdding ? (
         <div className="max-w-2xl mx-auto bg-white p-10 rounded-[2.5rem] shadow-2xl border border-slate-100 relative overflow-hidden">
-          {saveSuccess && <div className="absolute inset-0 bg-theme/95 flex flex-col items-center justify-center z-50 text-white animate-in fade-in"><CheckCircle2 size={48} /><h3 className="text-2xl font-black mt-2">Companion Registered</h3></div>}
+          {saveSuccess && (
+            <div className="absolute inset-0 bg-theme/95 flex flex-col items-center justify-center z-50 text-white animate-in fade-in">
+              <div className="p-6 bg-white/20 rounded-full animate-pulse mb-4">
+                <CheckCircle2 size={64} />
+              </div>
+              <h3 className="text-3xl font-black tracking-tight">Registration Complete</h3>
+              <p className="mt-2 text-white/80 font-bold">Synchronizing with Dashboard...</p>
+            </div>
+          )}
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-2xl font-black text-slate-900">Step {step}: {step === 1 ? 'Select Domain' : step === 2 ? 'Species' : 'Identity'}</h2>
             <button onClick={() => setIsAdding(false)} className="p-2 text-slate-300 hover:text-slate-500"><X size={20} /></button>
@@ -318,10 +334,44 @@ const PetProfilePage: React.FC = () => {
               <div className="space-y-1 pb-4">
                 <h3 className="text-4xl font-black text-slate-900 tracking-tighter">{selectedPet.name}</h3>
                 <p className="text-[10px] font-black text-theme uppercase tracking-[0.2em]">{selectedPet.breed} · {selectedPet.species}</p>
-                <div className="inline-block mt-4 px-3 py-1 bg-slate-50 rounded-full border border-slate-100 text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  ID: {selectedPet.id}
-                </div>
               </div>
+            </div>
+
+            {/* Per-Pet Digital ID / Scanner Section */}
+            <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white space-y-6 shadow-2xl relative overflow-hidden">
+               <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl"></div>
+               
+               <div className="flex items-center justify-between relative z-10">
+                  <div className="flex items-center gap-3">
+                     <QrCode size={20} className="text-indigo-400" />
+                     <h4 className="text-[10px] font-black uppercase tracking-[0.3em]">Digital Identity</h4>
+                  </div>
+                  <button onClick={handleScanClick} className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-all">
+                    <Scan size={14} className="text-indigo-300" />
+                  </button>
+               </div>
+
+               <div className="bg-white p-6 rounded-[2rem] mx-auto w-44 h-44 flex items-center justify-center shadow-inner group relative overflow-hidden">
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${selectedPet.id}`} 
+                    alt="Pet QR ID" 
+                    className="w-full h-full object-contain mix-blend-multiply"
+                  />
+                  <div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex flex-col items-center justify-center">
+                    <div className="w-full h-1 bg-indigo-500/30 animate-scan-beam absolute top-0 left-0" />
+                  </div>
+               </div>
+
+               <div className="space-y-4 pt-2 relative z-10">
+                  <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <span>Registry ID</span>
+                    <span className="text-white">{selectedPet.id.split('-')[1]}</span>
+                  </div>
+                  <div className="h-px bg-white/10" />
+                  <button onClick={() => navigate(`/pet/${selectedPet.id}`)} className="w-full flex items-center justify-center gap-2 py-3 bg-white text-slate-900 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-indigo-50 transition-all">
+                     View Public Profile <ArrowRight size={12} />
+                  </button>
+               </div>
             </div>
           </div>
 
