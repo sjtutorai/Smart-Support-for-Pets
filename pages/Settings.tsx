@@ -178,7 +178,9 @@ const Settings: React.FC = () => {
   const isPhoneNumberInvalid = !!phoneValidationError && editData.phoneNumber.trim().length > 0;
 
   const handleSaveProfile = async () => {
-    if (!user || usernameTakenStatus === 'taken' || isValidatingUsername || isPhoneNumberInvalid) return;
+    if (!user || usernameTakenStatus === 'taken' || isValidatingUsername || isPhoneNumberInvalid || !editData.username.trim()) {
+      return;
+    }
 
     setIsSaving(true);
     setSaveStatus(null);
@@ -188,12 +190,6 @@ const Settings: React.FC = () => {
       const trimmedUsername = editData.username.trim();
       const fullPhoneNumber = editData.phoneNumber.trim() ? `${editData.phoneCode.trim()} ${editData.phoneNumber.trim()}` : '';
 
-      if (!trimmedUsername) {
-        setSaveStatus({ message: 'Username cannot be empty.', type: 'error' });
-        setIsSaving(false);
-        return;
-      }
-      
       await updateUserProfile(user.uid, { 
         displayName: trimmedDisplayName, 
         username: trimmedUsername, 
