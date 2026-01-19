@@ -681,6 +681,7 @@ const PetProfilePage: React.FC = () => {
              </div>
           </div>
         </div>
+      </div>
       ) : (
         <div className="py-40 text-center animate-in zoom-in-95 duration-500">
           <div className="bg-slate-50 w-24 h-24 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 text-slate-200 shadow-inner"><Dog size={48} /></div>
