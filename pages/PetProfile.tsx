@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from "react-router-dom";
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -12,7 +12,12 @@ import {
   Star, 
   Layers,
   Sparkle,
-  Zap
+  Zap,
+  Download,
+  Activity,
+  ChevronDown,
+  // Added missing ShieldCheck import
+  ShieldCheck
 } from 'lucide-react';
 import { PetProfile, WeightRecord, VaccinationRecord, AppRoutes } from '../types';
 
@@ -87,6 +92,57 @@ const calculateAge = (birthday: string) => {
   return { years: Math.max(0, years), months: Math.max(0, months) };
 };
 
+const WeightChart: React.FC<{ data: WeightRecord[] }> = ({ data }) => {
+  if (!data || data.length < 2) return (
+    <div className="h-32 flex flex-col items-center justify-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-100">
+      <TrendingUp size={24} className="text-slate-200 mb-2" />
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Need 2+ records for trend data</p>
+    </div>
+  );
+
+  const padding = 20;
+  const width = 400;
+  const height = 150;
+
+  const weights = data.map(d => d.weight);
+  const minW = Math.min(...weights) * 0.95;
+  const maxW = Math.max(...weights) * 1.05;
+  const rangeW = maxW - minW || 1;
+
+  const points = data.map((d, i) => {
+    const x = padding + (i / (data.length - 1)) * (width - 2 * padding);
+    const y = height - padding - ((d.weight - minW) / rangeW) * (height - 2 * padding);
+    return `${x},${y}`;
+  }).join(' ');
+
+  return (
+    <div className="relative w-full bg-slate-50/30 rounded-3xl p-4 overflow-hidden border border-slate-50">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-32 drop-shadow-sm">
+        <polyline
+          fill="none"
+          stroke="var(--theme-color)"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={points}
+          className="transition-all duration-1000"
+        />
+        {data.map((d, i) => {
+           const x = padding + (i / (data.length - 1)) * (width - 2 * padding);
+           const y = height - padding - ((d.weight - minW) / rangeW) * (height - 2 * padding);
+           return (
+             <circle key={i} cx={x} cy={y} r="4" fill="white" stroke="var(--theme-color)" strokeWidth="2" />
+           );
+        })}
+      </svg>
+      <div className="mt-2 flex justify-between px-2">
+         <span className="text-[8px] font-bold text-slate-400 uppercase">{data[0].date}</span>
+         <span className="text-[8px] font-bold text-slate-400 uppercase">{data[data.length-1].date}</span>
+      </div>
+    </div>
+  );
+};
+
 const PetProfilePage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -103,6 +159,8 @@ const PetProfilePage: React.FC = () => {
   const [newPet, setNewPet] = useState<Partial<PetProfile>>({ name: '', breed: '', birthday: '', bio: '', species: 'Dog', weightHistory: [], vaccinations: [] });
   const [newRecord, setNewRecord] = useState({ name: '', date: new Date().toISOString().split('T')[0], weight: '', nextDueDate: '' });
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isAnalyzingHealth, setIsAnalyzingHealth] = useState(false);
+  const [healthInsights, setHealthInsights] = useState<string | null>(null);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
@@ -121,7 +179,7 @@ const PetProfilePage: React.FC = () => {
         if (parsed.length > 0 && !selectedPet) setSelectedPet(parsed[0]);
       } catch (e) { /* silent fail */ }
     }
-  }, [user?.uid, selectedPet]);
+  }, [user?.uid]);
 
   const savePetsToStorage = async (updatedPets: PetProfile[]) => {
     if (!user?.uid) return;
@@ -133,6 +191,17 @@ const PetProfilePage: React.FC = () => {
   const handleAddPet = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    
+    // Inline Validation
+    if (!newPet.name?.trim()) {
+       addNotification('Validation Error', 'Companion name is required.', 'warning');
+       return;
+    }
+    if (!newPet.birthday) {
+       addNotification('Validation Error', 'Birthday is required for age calculation.', 'warning');
+       return;
+    }
+
     const id = `SSP-${Date.now()}`;
     const { years, months } = calculateAge(newPet.birthday || '');
     const completePet: PetProfile = { 
@@ -167,42 +236,93 @@ const PetProfilePage: React.FC = () => {
     const targetMatch = selectedPet.name.trim().toLowerCase();
     
     if (inputMatch !== targetMatch) {
-      addNotification('Validation Error', 'The typed name does not match the pet name.', 'warning');
+      addNotification('Validation Error', 'The typed name does not match.', 'warning');
       return;
     }
 
     setIsDeleting(true);
     try {
       await deletePet(selectedPet.id);
-      
       const updatedPets = pets.filter(p => p.id !== selectedPet.id);
       setPets(updatedPets);
       localStorage.setItem(`ssp_pets_${user.uid}`, JSON.stringify(updatedPets));
-      
       addNotification('Profile Removed', `${selectedPet.name}'s registry has been purged.`, 'info');
-      
       setShowDeleteModal(false);
       setDeleteConfirmation('');
-      
-      if (updatedPets.length > 0) {
-        setSelectedPet(updatedPets[0]);
-      } else {
-        setSelectedPet(null);
-      }
-      
-      // Force redirection logic to clear any stale states
+      if (updatedPets.length > 0) setSelectedPet(updatedPets[0]);
+      else setSelectedPet(null);
       navigate(AppRoutes.PET_PROFILE);
     } catch (err) {
-      console.error("Deletion failed:", err);
-      addNotification('System Error', 'Failed to remove pet from registry.', 'error');
+      addNotification('System Error', 'Failed to remove pet.', 'error');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const generateHealthInsights = async () => {
+    if (!selectedPet) return;
+    setIsAnalyzingHealth(true);
+    setHealthInsights(null);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const prompt = `Analyze the following pet data and provide health insights and recommendations:
+      Pet Name: ${selectedPet.name}
+      Species: ${selectedPet.species}
+      Breed: ${selectedPet.breed}
+      Age: ${selectedPet.ageYears} years, ${selectedPet.ageMonths} months
+      Weight History: ${JSON.stringify(selectedPet.weightHistory)}
+      Vaccinations: ${JSON.stringify(selectedPet.vaccinations)}
+      Health Notes: ${selectedPet.healthNotes || 'None provided'}
+      
+      Provide 3-4 bullet points of high-level advice focusing on weight trends, vaccination status, and general wellness. Keep it under 100 words.`;
+      
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt
+      });
+      setHealthInsights(response.text || "No insights available at this time.");
+      addNotification('AI Health Insight', 'Analysis complete.', 'success');
+    } catch (err) {
+      addNotification('AI Error', 'Failed to generate health insights.', 'error');
+    } finally {
+      setIsAnalyzingHealth(false);
+    }
+  };
+
+  const downloadQrCode = () => {
+    if (!selectedPet) return;
+    const canvas = document.createElement('canvas');
+    const qrImg = document.getElementById('pet-qr-img') as HTMLImageElement;
+    if (!qrImg) return;
+    
+    const ctx = canvas.getContext('2d');
+    canvas.width = qrImg.naturalWidth || 200;
+    canvas.height = qrImg.naturalHeight || 200;
+    if (ctx) {
+       ctx.fillStyle = "white";
+       ctx.fillRect(0,0, canvas.width, canvas.height);
+       ctx.drawImage(qrImg, 0, 0);
+       const link = document.createElement('a');
+       link.download = `${selectedPet.name}-digital-id.png`;
+       link.href = canvas.toDataURL('image/png');
+       link.click();
+       addNotification('Identity Exported', 'PNG downloaded.', 'success');
     }
   };
 
   const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPet) return;
+
+    // Inline Validation
+    if (isAddingRecord === 'weight' && (!newRecord.weight || isNaN(parseFloat(newRecord.weight)))) {
+      addNotification('Validation Error', 'Please enter a valid weight.', 'warning');
+      return;
+    }
+    if (isAddingRecord === 'vaccine' && !newRecord.name.trim()) {
+      addNotification('Validation Error', 'Vaccine name is required.', 'warning');
+      return;
+    }
 
     let updatedPet = { ...selectedPet };
     if (isAddingRecord === 'vaccine') {
@@ -218,7 +338,7 @@ const PetProfilePage: React.FC = () => {
     setSelectedPet(updatedPet);
     setIsAddingRecord(null);
     setNewRecord({ name: '', date: new Date().toISOString().split('T')[0], weight: '', nextDueDate: '' });
-    addNotification('Record Added', 'Health logs updated successfully.', 'success');
+    addNotification('Record Added', 'Health logs updated.', 'success');
   };
 
   const handleDeleteRecord = async (type: 'vaccine' | 'weight', index: number) => {
@@ -269,8 +389,7 @@ const PetProfilePage: React.FC = () => {
         }
       }
     } catch (err: any) {
-      console.error("Avatar generation error:", err);
-      addNotification('AI Studio Error', 'Generation cycle failed. Please try again.', 'error');
+      addNotification('AI Studio Error', 'Generation failed.', 'error');
     } finally { setIsGeneratingAvatar(false); }
   };
 
@@ -313,10 +432,10 @@ const PetProfilePage: React.FC = () => {
                 navigate(`/pet/${petData.id}`);
               }
             } else {
-              addNotification('Registry Missing', 'Invalid QR signature detected.', 'warning');
+              addNotification('Registry Missing', 'Invalid QR signature.', 'warning');
             }
           } catch (err) {
-            addNotification('Network Failure', 'Could not verify identity.', 'error');
+            addNotification('Network Failure', 'Could not verify.', 'error');
           }
         } else {
           addNotification('Scan Interrupted', 'No valid digital signature found.', 'error');
@@ -397,6 +516,7 @@ const PetProfilePage: React.FC = () => {
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Companion Name</label>
                 <input required value={newPet.name} onChange={e => setNewPet({ ...newPet, name: e.target.value })} className="w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold" placeholder="e.g. Luna" />
+                {newPet.name && newPet.name.length < 2 && <p className="text-[9px] text-rose-400 font-black uppercase tracking-widest ml-1 animate-pulse">Name too short</p>}
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Species Detail</label>
@@ -460,7 +580,7 @@ const PetProfilePage: React.FC = () => {
                   onClick={() => { setShowDeleteModal(true); setDeleteConfirmation(''); }}
                   className="mt-6 flex items-center gap-2 mx-auto text-rose-400 hover:text-rose-600 font-bold text-[10px] uppercase tracking-widest transition-colors"
                 >
-                  <Trash2 size={14} /> Purge Registry Profile
+                  <Trash2 size={14} /> Purge Profile
                 </button>
               </div>
             </div>
@@ -473,16 +593,18 @@ const PetProfilePage: React.FC = () => {
                      <QrCode size={20} className="text-indigo-400" />
                      <h4 className="text-[10px] font-black uppercase tracking-[0.3em]">Digital Identity</h4>
                   </div>
-                  <button onClick={handleScanClick} className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-all">
-                    <Scan size={14} className="text-indigo-300" />
+                  <button onClick={downloadQrCode} className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-all" title="Share Digital ID">
+                    <Download size={14} className="text-indigo-300" />
                   </button>
                </div>
 
                <div className="bg-white p-6 rounded-[2rem] mx-auto w-44 h-44 flex items-center justify-center shadow-inner group relative overflow-hidden">
                   <img 
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${selectedPet.id}`} 
+                    id="pet-qr-img"
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${selectedPet.id}`} 
                     alt="Pet QR ID" 
                     className="w-full h-full object-contain mix-blend-multiply"
+                    crossOrigin="anonymous"
                   />
                   <div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex flex-col items-center justify-center">
                     <div className="w-full h-1 bg-indigo-500/30 animate-scan-beam absolute top-0 left-0" />
@@ -502,77 +624,132 @@ const PetProfilePage: React.FC = () => {
             </div>
           </div>
 
-          <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 border border-slate-50 shadow-sm min-h-[400px] flex flex-col">
-             <div className="flex items-center justify-between mb-8">
-               <div className="flex items-center gap-4">
-                 <div className="p-3 bg-slate-900 text-theme rounded-xl shadow-md"><Brain size={24} /></div>
-                 <div>
-                   <h4 className="font-black text-xl text-slate-900 leading-none">Health Intelligence</h4>
-                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Medical records & AI Insights</p>
-                 </div>
-               </div>
-               <div className="flex gap-2">
-                 <button onClick={() => setIsAddingRecord('weight')} className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">+ Log Weight</button>
-                 <button onClick={() => setIsAddingRecord('vaccine')} className="px-4 py-2 bg-theme text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-theme/10 hover:bg-theme-hover">+ Add Vaccine</button>
-               </div>
-             </div>
+          <div className="lg:col-span-2 space-y-8">
+            <div className="bg-white rounded-[2.5rem] p-8 border border-slate-50 shadow-sm flex flex-col">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-slate-900 text-theme rounded-xl shadow-md"><Brain size={24} /></div>
+                  <div>
+                    <h4 className="font-black text-xl text-slate-900 leading-none">Health Intelligence</h4>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Medical records & AI Insights</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setIsAddingRecord('weight')} className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">+ Log Weight</button>
+                  <button onClick={() => setIsAddingRecord('vaccine')} className="px-4 py-2 bg-theme text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-theme/10 hover:bg-theme-hover">+ Add Vaccine</button>
+                </div>
+              </div>
 
-             {isAddingRecord ? (
-               <form onSubmit={handleAddRecord} className="flex-1 bg-slate-50/50 rounded-3xl p-8 border border-slate-100 space-y-6 animate-in slide-in-from-top-4">
-                 <div className="flex items-center justify-between mb-2">
-                   <h5 className="font-black text-slate-800 text-sm uppercase tracking-widest">Add {isAddingRecord === 'vaccine' ? 'Vaccination' : 'Weight Entry'}</h5>
-                   <button type="button" onClick={() => setIsAddingRecord(null)}><X size={16} className="text-slate-400" /></button>
-                 </div>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <input type="date" required value={newRecord.date} onChange={e => setNewRecord({...newRecord, date: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
-                   {isAddingRecord === 'vaccine' ? (
-                     <>
-                       <input required placeholder="Vaccine Name" value={newRecord.name} onChange={e => setNewRecord({...newRecord, name: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
-                       <input type="date" required value={newRecord.nextDueDate} onChange={e => setNewRecord({...newRecord, nextDueDate: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
-                     </>
-                   ) : (
-                     <input type="number" step="0.1" required placeholder="Weight (KG)" value={newRecord.weight} onChange={e => setNewRecord({...newRecord, weight: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
-                   )}
-                 </div>
-                 <button type="submit" className="w-full py-4 bg-slate-900 text-theme rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all">Save Health Record</button>
-               </form>
-             ) : (selectedPet.vaccinations?.length || 0) + (selectedPet.weightHistory?.length || 0) > 0 ? (
-               <div className="flex-1 space-y-6">
-                 {selectedPet.vaccinations && selectedPet.vaccinations.length > 0 && (
-                   <div className="space-y-3">
-                     <h5 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Syringe size={14}/> Vaccinations</h5>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                       {selectedPet.vaccinations.map((v, i) => (
-                         <div key={i} className="group relative p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
-                            <div><p className="font-black text-slate-800 text-sm">{v.name}</p><p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Admin: {v.date}</p></div>
-                            <div className="text-right"><p className="text-[8px] font-black text-theme uppercase tracking-widest">Next Due</p><p className="text-[10px] font-black text-slate-700 mt-0.5">{v.nextDueDate}</p></div>
-                            <button onClick={() => handleDeleteRecord('vaccine', i)} className="absolute top-1 right-1 p-1 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12} /></button>
-                         </div>
-                       ))}
+              {isAddingRecord ? (
+                <form onSubmit={handleAddRecord} className="flex-1 bg-slate-50/50 rounded-3xl p-8 border border-slate-100 space-y-6 animate-in slide-in-from-top-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="font-black text-slate-800 text-sm uppercase tracking-widest">Add {isAddingRecord === 'vaccine' ? 'Vaccination' : 'Weight Entry'}</h5>
+                    <button type="button" onClick={() => setIsAddingRecord(null)}><X size={16} className="text-slate-400" /></button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 ml-1">Log Date</label>
+                      <input type="date" required value={newRecord.date} onChange={e => setNewRecord({...newRecord, date: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
+                    </div>
+                    {isAddingRecord === 'vaccine' ? (
+                      <>
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 ml-1">Vaccine Name</label>
+                          <input required placeholder="e.g. Rabies" value={newRecord.name} onChange={e => setNewRecord({...newRecord, name: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
+                        </div>
+                        <div className="space-y-1 md:col-span-2">
+                          <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 ml-1">Next Due Date</label>
+                          <input type="date" required value={newRecord.nextDueDate} onChange={e => setNewRecord({...newRecord, nextDueDate: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="space-y-1">
+                        <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 ml-1">Weight (KG)</label>
+                        <input type="number" step="0.1" required placeholder="0.0" value={newRecord.weight} onChange={e => setNewRecord({...newRecord, weight: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
+                      </div>
+                    )}
+                  </div>
+                  <button type="submit" className="w-full py-4 bg-slate-900 text-theme rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all">Save Health Record</button>
+                </form>
+              ) : (selectedPet.vaccinations?.length || 0) + (selectedPet.weightHistory?.length || 0) > 0 ? (
+                <div className="flex-1 space-y-8">
+                  <div className="space-y-4">
+                    <h5 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><TrendingUp size={14}/> Weight Trends</h5>
+                    <WeightChart data={selectedPet.weightHistory} />
+                  </div>
+
+                  {selectedPet.vaccinations && selectedPet.vaccinations.length > 0 && (
+                    <div className="space-y-4">
+                      <h5 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Syringe size={14}/> Vaccinations</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {selectedPet.vaccinations.map((v, i) => (
+                          <div key={i} className="group relative p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                             <div><p className="font-black text-slate-800 text-sm">{v.name}</p><p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Admin: {v.date}</p></div>
+                             <div className="text-right"><p className="text-[8px] font-black text-theme uppercase tracking-widest">Next Due</p><p className="text-[10px] font-black text-slate-700 mt-0.5">{v.nextDueDate}</p></div>
+                             <button onClick={() => handleDeleteRecord('vaccine', i)} className="absolute top-1 right-1 p-1 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12} /></button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center py-24 text-center">
+                   <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-6 text-slate-200"><Stethoscope size={32} /></div>
+                   <p className="text-slate-300 font-black uppercase tracking-[0.3em] text-[10px]">No medical logs recorded</p>
+                   <button onClick={() => setIsAddingRecord('vaccine')} className="mt-6 text-theme font-black text-[10px] uppercase tracking-widest hover:underline">+ Add First Record</button>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-slate-900 rounded-[2.5rem] p-8 border border-slate-800 shadow-xl overflow-hidden relative group">
+               <div className="absolute top-0 right-0 p-8 opacity-5 text-theme group-hover:scale-110 transition-transform"><Bot size={120}/></div>
+               <div className="flex items-center justify-between mb-8 relative z-10">
+                  <div className="flex items-center gap-4">
+                     <div className="p-3 bg-theme-light text-theme rounded-xl"><Sparkles size={20}/></div>
+                     <div>
+                        <h4 className="font-black text-xl text-white leading-none">AI Health Insights</h4>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">Smart wellness analysis</p>
                      </div>
-                   </div>
-                 )}
-                 {selectedPet.weightHistory && selectedPet.weightHistory.length > 0 && (
-                   <div className="space-y-3">
-                     <h5 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><TrendingUp size={14}/> Weight Logs</h5>
-                     <div className="flex gap-3 overflow-x-auto pb-2 scroll-hide">
-                       {selectedPet.weightHistory.map((w, i) => (
-                         <div key={i} className="group relative p-4 bg-white rounded-2xl border border-slate-100 flex flex-col items-center shrink-0 min-w-[100px] shadow-sm">
-                            <p className="text-xl font-black text-slate-900">{w.weight} <span className="text-[10px] text-slate-400">kg</span></p><p className="text-[9px] font-bold text-slate-400 uppercase mt-1">{w.date}</p>
-                            <button onClick={() => handleDeleteRecord('weight', i)} className="absolute top-1 right-1 p-1 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12} /></button>
-                         </div>
-                       ))}
-                     </div>
-                   </div>
-                 )}
+                  </div>
+                  <button 
+                    onClick={generateHealthInsights} 
+                    disabled={isAnalyzingHealth}
+                    className="px-6 py-2.5 bg-theme text-white rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-theme-hover transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {isAnalyzingHealth ? <Loader2 size={14} className="animate-spin"/> : <Brain size={14}/>}
+                    Generate Insights
+                  </button>
                </div>
-             ) : (
-               <div className="flex-1 flex flex-col items-center justify-center py-24 text-center">
-                  <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-6 text-slate-200"><Stethoscope size={32} /></div>
-                  <p className="text-slate-300 font-black uppercase tracking-[0.3em] text-[10px]">No medical logs recorded</p>
-                  <button onClick={() => setIsAddingRecord('vaccine')} className="mt-6 text-theme font-black text-[10px] uppercase tracking-widest hover:underline">+ Add First Record</button>
+
+               <div className="relative z-10">
+                  {isAnalyzingHealth ? (
+                    <div className="py-12 flex flex-col items-center justify-center gap-4 text-center">
+                       <div className="flex gap-2">
+                          <div className="w-2 h-2 rounded-full bg-theme animate-bounce"></div>
+                          <div className="w-2 h-2 rounded-full bg-theme animate-bounce delay-100"></div>
+                          <div className="w-2 h-2 rounded-full bg-theme animate-bounce delay-200"></div>
+                       </div>
+                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Scanning bio-records...</p>
+                    </div>
+                  ) : healthInsights ? (
+                    <div className="bg-white/5 rounded-[2rem] p-6 border border-white/10 animate-in fade-in slide-in-from-bottom-2">
+                       <div className="prose prose-invert prose-sm max-w-none">
+                          <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-line font-medium">{healthInsights}</p>
+                       </div>
+                       <div className="mt-6 flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500 border-t border-white/5 pt-4">
+                          <ShieldCheck size={12} className="text-emerald-500"/>
+                          AI generated wellness analysis based on provided records
+                       </div>
+                    </div>
+                  ) : (
+                    <div className="py-12 text-center border-2 border-dashed border-white/10 rounded-[2rem]">
+                       <Bot size={32} className="mx-auto text-slate-700 mb-4"/>
+                       <p className="text-slate-500 font-bold text-xs">Run analysis to see specialized care recommendations.</p>
+                    </div>
+                  )}
                </div>
-             )}
+            </div>
           </div>
         </div>
       ) : (
@@ -597,7 +774,7 @@ const PetProfilePage: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                    Elite Portrait Studio
+                    Portrait Studio
                     <span className="text-[10px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full border border-indigo-100">Premium Access</span>
                   </h3>
                   <p className="text-slate-500 font-medium text-sm">Designing a premium world-class identity for {selectedPet?.name}.</p>
@@ -638,7 +815,7 @@ const PetProfilePage: React.FC = () => {
                   
                   <div className="mt-auto relative z-10 flex items-center gap-3">
                     <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${style.isPremium ? 'bg-white/10 text-white group-hover:bg-white/20' : 'bg-slate-900 text-white group-hover:bg-theme'}`}>
-                      Generate Portrait <ArrowRight size={12} />
+                      Generate {style.name.split(' ')[0]} <ArrowRight size={12} />
                     </div>
                   </div>
 
@@ -650,7 +827,7 @@ const PetProfilePage: React.FC = () => {
             <div className="p-8 bg-white border-t border-slate-50 flex items-center justify-between gap-4 shrink-0">
               <div className="flex items-center gap-3">
                 <Sparkle size={20} className="text-theme animate-spin duration-[4000ms]" />
-                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-300">Synchronized with Gemini Vision Hub v2.5</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-300">Synchronized with Gemini Hub</span>
               </div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">Unlimited Registry Generations</p>
             </div>
