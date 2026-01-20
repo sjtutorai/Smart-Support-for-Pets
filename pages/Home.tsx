@@ -17,35 +17,37 @@ import {
   ChevronDown,
   Edit2,
   X,
-  Save
+  Save,
+  Zap
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-// Fix: Re-importing react-router-dom members using single quotes to resolve module issues
 import { Link } from 'react-router-dom';
-import { AppRoutes, PetProfile } from '../types';
+import { AppRoutes, PetProfile, WeightRecord } from '../types';
 import { STAT_ROUTINE } from '../context/NotificationContext';
+import { syncPetToDb } from '../services/firebase';
 
 const StatCard: React.FC<{ 
   icon: React.ElementType, 
   label: string, 
   value: string, 
   color: string,
-  onEdit?: () => void 
+  onEdit: () => void 
 }> = ({ icon: Icon, label, value, color, onEdit }) => (
-  <div className="group bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl hover:translate-y-[-4px] transition-all duration-300 relative">
-    {onEdit && (
-      <button 
-        onClick={onEdit}
-        className="absolute top-4 right-4 p-2 bg-slate-50 text-slate-400 rounded-xl opacity-0 group-hover:opacity-100 hover:text-theme hover:bg-theme-light transition-all"
-      >
-        <Edit2 size={14} />
-      </button>
-    )}
-    <div className={`p-3.5 rounded-2xl inline-block mb-4 ${color} shadow-sm transition-theme`}>
-      <Icon className="w-5 h-5 text-white" />
+  <div 
+    onClick={onEdit}
+    className="group bg-white p-8 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-50 hover:shadow-[0_20px_50px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-500 relative cursor-pointer"
+  >
+    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 ${color} shadow-lg transition-transform group-hover:scale-110 duration-500`}>
+      <Icon className="w-6 h-6 text-white" />
     </div>
-    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1">{label}</p>
-    <h3 className="text-2xl font-black text-slate-800 tracking-tight">{value}</h3>
+    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">{label}</p>
+    <h3 className="text-3xl font-black text-slate-900 tracking-tight">{value}</h3>
+    
+    <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="p-2 bg-slate-50 rounded-xl text-slate-300">
+        <Edit2 size={14} />
+      </div>
+    </div>
   </div>
 );
 
@@ -57,13 +59,13 @@ const Home: React.FC = () => {
   
   const [appointments, setAppointments] = useState(() => localStorage.getItem(`ssp_appointments_${user?.uid}`) || 'None');
   const [exercise, setExercise] = useState(() => localStorage.getItem(`ssp_exercise_${user?.uid}`) || '0');
-  const [editingStat, setEditingStat] = useState<'appointments' | 'exercise' | null>(null);
+  const [petStatus, setPetStatus] = useState(() => localStorage.getItem(`ssp_status_${user?.uid}`) || 'Active');
+  
+  const [editingStat, setEditingStat] = useState<'appointments' | 'exercise' | 'weight' | 'status' | null>(null);
   const [editValue, setEditValue] = useState('');
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -74,24 +76,48 @@ const Home: React.FC = () => {
     if (saved) {
       const parsed = JSON.parse(saved);
       setPets(parsed);
-      if (parsed.length > 0) setActivePet(parsed[0]);
+      if (parsed.length > 0 && !activePet) setActivePet(parsed[0]);
     }
   }, [user]);
 
-  const saveStat = () => {
-    if (editingStat === 'appointments') {
+  const handleUpdateStat = async () => {
+    if (!user) return;
+
+    if (editingStat === 'weight' && activePet) {
+      const newWeight = parseFloat(editValue);
+      if (!isNaN(newWeight)) {
+        const newRecord: WeightRecord = { 
+          date: new Date().toISOString().split('T')[0], 
+          weight: newWeight 
+        };
+        const updatedPet = { 
+          ...activePet, 
+          weightHistory: [...(activePet.weightHistory || []), newRecord] 
+        };
+        const updatedPets = pets.map(p => p.id === activePet.id ? updatedPet : p);
+        
+        setPets(updatedPets);
+        setActivePet(updatedPet);
+        localStorage.setItem(`ssp_pets_${user.uid}`, JSON.stringify(updatedPets));
+        await syncPetToDb(updatedPet);
+      }
+    } else if (editingStat === 'appointments') {
       setAppointments(editValue || 'None');
-      localStorage.setItem(`ssp_appointments_${user?.uid}`, editValue || 'None');
+      localStorage.setItem(`ssp_appointments_${user.uid}`, editValue || 'None');
     } else if (editingStat === 'exercise') {
       setExercise(editValue || '0');
-      localStorage.setItem(`ssp_exercise_${user?.uid}`, editValue || '0');
+      localStorage.setItem(`ssp_exercise_${user.uid}`, editValue || '0');
+    } else if (editingStat === 'status') {
+      setPetStatus(editValue || 'Active');
+      localStorage.setItem(`ssp_status_${user.uid}`, editValue || 'Active');
     }
+
     setEditingStat(null);
     setEditValue('');
   };
 
-  const firstName = user?.displayName?.split(' ')[0] || 'Pet Lover';
   const hasPets = pets.length > 0;
+  const firstName = user?.displayName?.split(' ')[0] || 'Pet Parent';
 
   const getTaskStatus = (task: any) => {
     if (currentHour >= task.endHour) return 'done';
@@ -104,45 +130,55 @@ const Home: React.FC = () => {
     return currentHour >= lastTask.endHour;
   }, [currentHour]);
 
-  const formattedIST = currentTime.toLocaleString('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    dateStyle: 'full',
-    timeStyle: 'medium',
+  const formattedTime = currentTime.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
   });
 
+  const recentWeight = activePet?.weightHistory?.[activePet.weightHistory.length - 1]?.weight;
+
   return (
-    <div className="space-y-10 pb-16">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h2 className="text-4xl font-black text-slate-900 tracking-tight">
-            Hello, {firstName}! 👋
-          </h2>
-          <div className="flex items-center gap-2 mt-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-            <p className="text-slate-500 font-bold text-sm uppercase tracking-wider">
-              {formattedIST} (IST)
-            </p>
+    <div className="space-y-12 pb-20 animate-fade-in">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+        <div className="space-y-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 rounded-full">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Portal Link Active</span>
           </div>
+          <h2 className="text-5xl font-black text-slate-900 tracking-tighter">
+            Hi, {firstName}!
+          </h2>
+          <p className="text-slate-400 font-medium flex items-center gap-2">
+            <Clock size={14} /> 
+            {currentTime.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })} · {formattedTime}
+          </p>
         </div>
-        <div className="flex gap-4">
+
+        <div className="flex items-center gap-4">
           {hasPets && (
             <div className="relative group">
-              <button className="flex items-center gap-3 bg-white border border-slate-200 px-6 py-4 rounded-2xl font-bold hover:bg-slate-50 transition-all shadow-sm">
-                <div className="w-6 h-6 rounded-lg overflow-hidden bg-slate-100">
+              <button className="flex items-center gap-4 bg-white border border-slate-100 px-6 py-4 rounded-[1.5rem] font-bold shadow-sm hover:shadow-md transition-all">
+                <div className="w-8 h-8 rounded-xl overflow-hidden bg-slate-50 flex items-center justify-center">
                   {activePet?.avatarUrl ? (
                     <img src={activePet.avatarUrl} className="w-full h-full object-cover" />
                   ) : (
-                    <PawPrint className="w-4 h-4 m-1 text-slate-300" />
+                    <PawPrint className="w-4 h-4 text-slate-300" />
                   )}
                 </div>
-                <span>{activePet?.name}</span>
-                <ChevronDown size={16} />
+                <span className="text-sm font-black text-slate-700">{activePet?.name}</span>
+                <ChevronDown size={16} className="text-slate-300" />
               </button>
-              <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all z-50 p-2 space-y-1">
+              <div className="absolute right-0 top-full mt-3 w-64 bg-white rounded-[2rem] shadow-2xl border border-slate-50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all z-50 p-3 space-y-1 scale-95 group-hover:scale-100 origin-top-right">
+                <p className="px-4 py-2 text-[9px] font-black uppercase tracking-widest text-slate-400">Select Companion</p>
                 {pets.map(p => (
-                  <button key={p.id} onClick={() => setActivePet(p)} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-indigo-50 transition-all font-bold text-sm text-slate-700">
-                    <div className="w-6 h-6 rounded-md overflow-hidden bg-slate-50 flex items-center justify-center">
-                        {p.avatarUrl ? <img src={p.avatarUrl} className="w-full h-full object-cover" /> : <PawPrint size={14} className="text-slate-300" />}
+                  <button 
+                    key={p.id} 
+                    onClick={() => setActivePet(p)} 
+                    className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all font-bold text-sm ${activePet?.id === p.id ? 'bg-theme text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    <div className="w-8 h-8 rounded-lg overflow-hidden bg-white/20 flex items-center justify-center">
+                        {p.avatarUrl ? <img src={p.avatarUrl} className="w-full h-full object-cover" /> : <PawPrint size={14} />}
                     </div>
                     {p.name}
                   </button>
@@ -152,185 +188,178 @@ const Home: React.FC = () => {
           )}
           <Link 
             to={AppRoutes.CREATE_POST}
-            className="inline-flex items-center gap-3 bg-theme text-white px-8 py-4 rounded-2xl font-black hover:bg-theme-hover transition-all shadow-xl shadow-theme/10 active:scale-95 transition-theme"
+            className="p-4 bg-slate-900 text-white rounded-2xl shadow-xl hover:bg-black transition-all active:scale-95"
           >
-            <Plus size={20} /> Post Moment
+            <Plus size={24} />
           </Link>
         </div>
       </div>
 
-      {!hasPets ? (
-        <div className="bg-theme rounded-[3.5rem] p-12 md:p-20 text-white relative overflow-hidden shadow-2xl shadow-theme/10 transition-theme">
-          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-[30rem] h-[30rem] bg-white/10 rounded-full blur-[100px]"></div>
-          <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-16 text-center lg:text-left">
-            <div className="max-w-2xl">
-              <div className="inline-flex p-5 bg-white/20 rounded-[2rem] mb-10 backdrop-blur-xl border border-white/30 shadow-2xl">
-                <PawPrint className="w-12 h-12 text-white" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <StatCard 
+          icon={Heart} 
+          label="Recent Weight" 
+          value={recentWeight ? `${recentWeight} kg` : '--'} 
+          color="bg-rose-500" 
+          onEdit={() => { setEditingStat('weight'); setEditValue(recentWeight ? String(recentWeight) : ''); }}
+        />
+        <StatCard 
+          icon={Calendar} 
+          label="Appointments" 
+          value={appointments} 
+          color="bg-indigo-600" 
+          onEdit={() => { setEditingStat('appointments'); setEditValue(appointments === 'None' ? '' : appointments); }} 
+        />
+        <StatCard 
+          icon={Activity} 
+          label="Exercise Today" 
+          value={`${exercise} min`} 
+          color="bg-emerald-500" 
+          onEdit={() => { setEditingStat('exercise'); setEditValue(exercise); }} 
+        />
+        <StatCard 
+          icon={ShieldCheck} 
+          label="Pet Status" 
+          value={petStatus} 
+          color="bg-amber-500" 
+          onEdit={() => { setEditingStat('status'); setEditValue(petStatus); }}
+        />
+      </div>
+
+      {editingStat && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in">
+           <div className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl border border-slate-100 space-y-8 animate-in zoom-in-95 duration-300">
+              <div className="flex items-center justify-between">
+                 <div>
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">Quick Update</h3>
+                    <p className="text-slate-400 font-medium text-xs">Update {activePet?.name || 'companion'} stats</p>
+                 </div>
+                 <button onClick={() => setEditingStat(null)} className="p-3 bg-slate-50 text-slate-400 hover:text-slate-600 rounded-2xl transition-all"><X size={20} /></button>
               </div>
-              <h3 className="text-5xl font-black mb-6 leading-[1.1] tracking-tighter">Your first pet profile is ready for creation.</h3>
-              <p className="text-white/80 text-xl mb-12 leading-relaxed font-medium">
-                Register your companions today to unlock custom health tracking and smart behavior monitoring.
-              </p>
-              <Link 
-                to={AppRoutes.PET_PROFILE}
-                className="inline-flex items-center gap-4 bg-white text-theme px-12 py-6 rounded-[2.5rem] font-black text-lg hover:bg-slate-50 transition-all shadow-2xl active:scale-95 group transition-theme"
-              >
-                Register Now
-                <ChevronRight size={24} className="group-hover:translate-x-1.5 transition-transform" />
-              </Link>
-            </div>
-            <div className="hidden lg:block relative">
-               <div className="w-80 h-80 bg-white/10 rounded-[5rem] rotate-[15deg] flex items-center justify-center backdrop-blur-2xl border border-white/20 shadow-2xl group cursor-pointer hover:rotate-0 transition-all duration-700">
-                  <Dog size={160} className="text-white/30 -rotate-[15deg] group-hover:rotate-0 transition-all duration-700" />
-               </div>
-               <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-white/10 rounded-full blur-[60px] animate-pulse"></div>
-            </div>
+
+              <div className="space-y-3">
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">
+                    {editingStat === 'weight' ? 'Current Weight (KG)' : 
+                     editingStat === 'exercise' ? 'Daily Exercise (Minutes)' : 
+                     editingStat === 'status' ? 'Companion Health Status' : 'Next Appointment'}
+                 </label>
+                 {editingStat === 'status' ? (
+                   <select 
+                     value={editValue} 
+                     onChange={(e) => setEditValue(e.target.value)}
+                     className="w-full p-6 bg-slate-50 rounded-[1.5rem] border border-slate-100 outline-none focus:ring-4 focus:ring-theme/10 focus:bg-white transition-all font-bold text-lg appearance-none"
+                   >
+                     <option value="Active">Active</option>
+                     <option value="Resting">Resting</option>
+                     <option value="Recovering">Recovering</option>
+                     <option value="Sleepy">Sleepy</option>
+                     <option value="Energetic">Energetic</option>
+                   </select>
+                 ) : (
+                   <input 
+                      autoFocus
+                      type={editingStat === 'weight' || editingStat === 'exercise' ? 'number' : 'text'}
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      placeholder={editingStat === 'weight' ? 'e.g. 12.5' : editingStat === 'exercise' ? 'e.g. 45' : 'e.g. Grooming 2pm'}
+                      className="w-full p-6 bg-slate-50 rounded-[1.5rem] border border-slate-100 outline-none focus:ring-4 focus:ring-theme/10 focus:bg-white transition-all font-bold text-lg"
+                   />
+                 )}
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setEditingStat(null)} className="flex-1 py-5 bg-slate-100 text-slate-500 rounded-[1.5rem] font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all">Discard</button>
+                <button 
+                  onClick={handleUpdateStat}
+                  className="flex-[2] py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-black shadow-xl transition-all active:scale-95"
+                >
+                  <Save size={18} /> Update Stat
+                </button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        <div className="lg:col-span-2 bg-white rounded-[3.5rem] shadow-[0_8px_40px_rgba(0,0,0,0.03)] border border-slate-50 p-10 hover:shadow-xl transition-all duration-700">
+          <div className="flex items-center justify-between mb-10">
+            <h4 className="font-black text-2xl text-slate-900 flex items-center gap-4">
+              <div className="p-3 bg-theme-light rounded-2xl"><Activity size={20} className="text-theme" /></div>
+              Guardian Analytics
+            </h4>
+            <Link to={AppRoutes.PET_PROFILE} className="text-[10px] font-black text-theme uppercase tracking-widest hover:underline">Full Registry</Link>
+          </div>
+          
+          <div className="h-80 bg-slate-50/50 rounded-[2.5rem] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center group cursor-pointer hover:bg-white hover:border-theme/20 transition-all duration-500">
+             <div className="w-20 h-20 bg-white rounded-3xl shadow-lg flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Plus size={32} className="text-slate-200 group-hover:text-theme" />
+             </div>
+             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Log Daily Observations</p>
           </div>
         </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <StatCard icon={Heart} label="Recent Weight" value={activePet?.weightHistory?.[activePet.weightHistory.length - 1]?.weight ? `${activePet.weightHistory[activePet.weightHistory.length - 1].weight} kg` : '--'} color="bg-rose-500" />
-            <StatCard 
-              icon={Calendar} 
-              label="Appointments" 
-              value={appointments} 
-              color="bg-indigo-500" 
-              onEdit={() => { setEditingStat('appointments'); setEditValue(appointments); }} 
-            />
-            <StatCard 
-              icon={Activity} 
-              label="Exercise Today" 
-              value={`${exercise} min`} 
-              color="bg-emerald-500" 
-              onEdit={() => { setEditingStat('exercise'); setEditValue(exercise); }} 
-            />
-            <StatCard icon={ShieldCheck} label="Pet Status" value="Active" color="bg-amber-500" />
-          </div>
 
-          {editingStat && (
-            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
-               <div className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl border border-slate-100 space-y-8 animate-in zoom-in-95 duration-300">
-                  <div className="flex items-center justify-between">
-                     <h3 className="text-2xl font-black text-slate-800 tracking-tight">Log {editingStat === 'exercise' ? 'Activity' : 'Appointments'}</h3>
-                     <button onClick={() => setEditingStat(null)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-all"><X size={20} /></button>
-                  </div>
-                  <div className="space-y-2">
-                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                        {editingStat === 'exercise' ? 'Minutes Spent Today' : 'Upcoming Event / Count'}
-                     </label>
-                     <input 
-                        autoFocus
-                        type={editingStat === 'exercise' ? 'number' : 'text'}
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        placeholder={editingStat === 'exercise' ? 'e.g. 45' : 'e.g. Vet Visit 3pm'}
-                        className="w-full p-5 bg-slate-50 rounded-2xl border border-slate-100 outline-none focus:ring-4 focus:ring-theme/10 focus:bg-white transition-all font-bold text-lg"
-                     />
-                  </div>
-                  <button 
-                    onClick={saveStat}
-                    className="w-full py-5 bg-theme text-white rounded-[1.5rem] font-black text-lg flex items-center justify-center gap-3 hover:bg-theme-hover shadow-xl shadow-theme/10 transition-all active:scale-95 transition-theme"
+        <div className={`rounded-[3.5rem] p-10 flex flex-col transition-all duration-1000 shadow-2xl ${isDayComplete ? 'bg-emerald-600 text-white shadow-emerald-500/20' : 'bg-white border border-slate-50 shadow-slate-200/50'}`}>
+          <div className="flex items-center justify-between mb-10">
+            <h4 className={`font-black text-2xl tracking-tight ${isDayComplete ? 'text-white' : 'text-slate-900'}`}>Routine</h4>
+            <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${isDayComplete ? 'bg-white/20' : 'bg-slate-50 text-slate-400'}`}>
+              {isDayComplete ? 'Optimized' : 'Live Check'}
+            </div>
+          </div>
+          
+          {isDayComplete ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8 animate-in zoom-in duration-700">
+              <div className="w-28 h-28 bg-white/10 rounded-[3rem] flex items-center justify-center backdrop-blur-md border border-white/20 shadow-2xl">
+                <Trophy size={56} className="text-white" />
+              </div>
+              <div>
+                <h5 className="text-3xl font-black mb-3 tracking-tight">Full Sync Complete</h5>
+                <p className="text-emerald-50/70 font-medium leading-relaxed">
+                  All care protocols for {activePet?.name} have been executed.
+                </p>
+              </div>
+              <div className="w-full bg-black/10 rounded-3xl p-6 text-center">
+                <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Next Phase</span>
+                <p className="font-bold text-sm mt-1">Tomorrow 07:00 AM</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+              {STAT_ROUTINE.map((item) => {
+                const status = getTaskStatus(item);
+                return (
+                  <div 
+                    key={item.id} 
+                    className={`flex items-center gap-4 p-5 rounded-[1.5rem] border transition-all duration-500 ${
+                      status === 'active' 
+                      ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-[1.03]' 
+                      : status === 'done'
+                      ? 'bg-slate-50 border-transparent opacity-40'
+                      : 'bg-white border-slate-50'
+                    }`}
                   >
-                    <Save size={20} /> Update Stats
-                  </button>
-               </div>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all ${
+                      status === 'active' ? 'bg-theme text-white' : 
+                      status === 'done' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-50 text-slate-300'
+                    }`}>
+                      {status === 'done' ? <CheckCircle2 size={18} /> : 
+                       status === 'active' ? <Zap size={18} className="animate-pulse" /> : <Clock size={18} />}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-black text-xs truncate uppercase tracking-widest ${status === 'done' ? 'line-through opacity-50' : ''}`}>
+                        {item.task}
+                      </p>
+                      <p className={`text-[8px] font-bold uppercase tracking-widest mt-1 opacity-60`}>
+                        {item.timeLabel}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-            <div className="lg:col-span-2 bg-white rounded-[3rem] shadow-sm border border-slate-100 p-10 hover:shadow-2xl transition-all duration-500">
-              <h4 className="font-black text-2xl text-slate-800 mb-8 flex items-center gap-3">
-                <Activity className="text-theme w-6 h-6" />
-                Monitoring: {activePet?.name}
-              </h4>
-              <Link 
-                to={AppRoutes.PET_PROFILE}
-                className="block h-80 bg-slate-50/50 rounded-[2.5rem] flex flex-col items-center justify-center border-2 border-dashed border-slate-200 group cursor-pointer hover:border-theme/40 hover:bg-white transition-all active:scale-[0.98] outline-none focus:ring-4 focus:ring-theme/5 overflow-hidden"
-              >
-                <div className="flex flex-col items-center gap-6">
-                  <div className="bg-white p-6 rounded-3xl shadow-sm group-hover:scale-110 group-hover:shadow-xl transition-all">
-                    <Plus className="text-slate-300 w-12 h-12 group-hover:text-theme" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-slate-400 font-black text-sm uppercase tracking-[0.2em]">Update {activePet?.name}'s Record</p>
-                    <p className="text-slate-300 text-xs mt-3 font-medium italic">Manage all companions in Pet Profile</p>
-                  </div>
-                </div>
-              </Link>
-            </div>
-
-            <div className={`rounded-[3rem] shadow-sm border p-10 flex flex-col transition-all duration-700 ${isDayComplete ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-white border-slate-100'}`}>
-              <div className="flex items-center justify-between mb-8">
-                <h4 className={`font-black text-2xl tracking-tight ${isDayComplete ? 'text-white' : 'text-slate-800'}`}>
-                  Care Routine
-                </h4>
-                <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${isDayComplete ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'}`}>
-                  {isDayComplete ? <Sparkles size={12} /> : <Clock size={12} />} {isDayComplete ? 'Done' : 'Live'}
-                </div>
-              </div>
-              
-              {isDayComplete ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6 animate-in fade-in zoom-in duration-700">
-                  <div className="w-24 h-24 bg-white/20 rounded-[2.5rem] flex items-center justify-center shadow-2xl backdrop-blur-sm border border-white/30">
-                    <Trophy size={48} className="text-white" />
-                  </div>
-                  <div>
-                    <h5 className="text-3xl font-black mb-2 tracking-tight">Great Job!</h5>
-                    <p className="text-emerald-50 font-medium leading-relaxed">
-                      All tasks for {activePet?.name} are completed today. See you tomorrow at 07:00 AM!
-                    </p>
-                  </div>
-                  <div className="w-full bg-black/10 rounded-3xl p-6 border border-white/10">
-                    <p className="text-[10px] font-black text-white/60 uppercase tracking-[0.2em] mb-1">Last Updated (IST)</p>
-                    <p className="font-bold text-sm">{currentTime.toLocaleTimeString('en-IN')}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                  {STAT_ROUTINE.map((item) => {
-                    const status = getTaskStatus(item);
-                    return (
-                      <div 
-                        key={item.id} 
-                        className={`flex items-center gap-4 p-4 rounded-2xl border transition-all duration-500 ${
-                          status === 'active' 
-                          ? 'bg-theme-light border-theme shadow-md scale-[1.02]' 
-                          : status === 'done'
-                          ? 'bg-slate-50 border-transparent opacity-60'
-                          : 'bg-white border-slate-50'
-                        }`}
-                      >
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                          status === 'active' ? 'bg-theme text-white animate-pulse' : 
-                          status === 'done' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'
-                        }`}>
-                          {status === 'done' ? <CheckCircle2 size={20} /> : 
-                           status === 'active' ? <CircleDot size={20} /> : <Clock size={20} />}
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-start gap-2">
-                            <span className={`font-black text-sm truncate transition-all ${status === 'done' ? 'line-through text-slate-400' : 'text-slate-700'}`}>
-                              {item.task}
-                            </span>
-                            {status === 'active' && (
-                              <span className="text-[8px] font-black bg-theme text-white px-2 py-0.5 rounded-full uppercase tracking-widest flex-shrink-0">Active</span>
-                            )}
-                          </div>
-                          <p className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${status === 'active' ? 'text-theme' : 'text-slate-400'}`}>
-                            {item.timeLabel}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 };

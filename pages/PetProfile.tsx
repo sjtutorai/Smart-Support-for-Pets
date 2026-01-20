@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from "react-router-dom";
 import { useAuth } from '../context/AuthContext';
@@ -7,25 +8,51 @@ import { syncPetToDb, getPetById, deletePet } from '../services/firebase';
 import jsQR from 'jsqr';
 import { 
   Dog, Plus, PawPrint, Camera, CheckCircle2, Bird, Fish, Thermometer,  
-  Trash2, Stethoscope, Brain, Wand2, Scan, X, Syringe, TrendingUp, Loader2, QrCode, ArrowRight, Palette, Sparkles, AlertTriangle, Bot, Heart
+  Trash2, Stethoscope, Brain, Wand2, Scan, X, Syringe, TrendingUp, Loader2, QrCode, ArrowRight, Palette, Sparkles, AlertTriangle, Bot, Heart, Bug, Waves
 } from 'lucide-react';
 import { PetProfile, WeightRecord, VaccinationRecord, AppRoutes } from '../types';
 
 export const BREED_DATA: Record<string, string[]> = {
+  // Mammals
   Dog: ['Labrador Retriever', 'German Shepherd', 'Golden Retriever', 'French Bulldog', 'Poodle', 'Beagle', 'Mixed Breed'],
   Cat: ['Persian', 'Maine Coon', 'Siamese', 'Ragdoll', 'Bengal', 'Mixed Breed'],
-  Bird: ['African Grey Parrot', 'Cockatiel', 'Budgerigar', 'Macaw', 'Conure', 'Lovebird', 'Cockatoo'],
   Rabbit: ['Holland Lop', 'Mini Rex', 'Dutch Rabbit', 'Lionhead'],
   Hamster: ['Syrian Hamster', 'Dwarf Hamster', 'Roborovski Hamster'],
   'Guinea Pig': ['Abyssinian', 'American', 'Peruvian', 'Teddy'],
+  // Birds
+  Budgie: ['Standard', 'English'],
+  Cockatiel: ['Grey', 'Lutino', 'Pied', 'Pearl'],
+  Parrot: ['African Grey', 'Amazon', 'Eclectus', 'Macaw', 'Conure'],
+  Canary: ['Yellow', 'Red Factor', 'Gloster'],
+  // Fish
+  Goldfish: ['Common', 'Comet', 'Shubunkin', 'Fantail'],
+  'Betta fish': ['Veiltail', 'Crowntail', 'Halfmoon'],
+  Guppy: ['Fancy', 'Endler'],
+  Koi: ['Kohaku', 'Taisho Sanke', 'Showa Sanshoku'],
+  // Reptiles
+  Turtle: ['Red-Eared Slider', 'Box Turtle', 'Painted Turtle'],
+  Tortoise: ['Sulcata', 'Russian', 'Hermann\'s'],
+  Gecko: ['Leopard Gecko', 'Crested Gecko'],
+  Snake: ['Ball Python', 'Corn Snake', 'King Snake'],
+  // Amphibians
+  Frog: ['Tree Frog', 'Bullfrog', 'Pacman Frog'],
+  Salamander: ['Axolotl', 'Tiger Salamander', 'Fire Salamander'],
+  Newt: ['Fire-bellied Newt', 'Eastern Newt'],
+  // Invertebrates
+  'Hermit crab': ['Caribbean', 'Ecuadorian'],
+  Tarantula: ['Mexican Red Knee', 'Chilean Rose', 'Pink Toe'],
+  Snail: ['Garden Snail', 'Giant African Land Snail'],
+  'Ant farm': ['Queen Ant Colony'],
   Other: ['Exotic Pet', 'Wild Animal', 'Invertebrate']
 };
 
 export const PET_CATEGORIES = [
   { id: 'mammal', name: 'Mammals', icon: Dog, species: ['Dog', 'Cat', 'Rabbit', 'Hamster', 'Guinea Pig'] },
-  { id: 'bird', name: 'Birds', icon: Bird, species: ['Parrot', 'Parakeet', 'Cockatiel', 'Lovebird'] },
-  { id: 'fish', name: 'Fish', icon: Fish, species: ['Goldfish', 'Betta Fish', 'Guppy'] },
-  { id: 'reptile', name: 'Reptiles', icon: Thermometer, species: ['Turtle', 'Tortoise', 'Lizard'] },
+  { id: 'bird', name: 'Birds', icon: Bird, species: ['Budgie', 'Cockatiel', 'Parrot', 'Canary'] },
+  { id: 'fish', name: 'Fish', icon: Fish, species: ['Goldfish', 'Betta fish', 'Guppy', 'Koi'] },
+  { id: 'reptile', name: 'Reptiles', icon: Thermometer, species: ['Turtle', 'Tortoise', 'Gecko', 'Snake'] },
+  { id: 'amphibian', name: 'Amphibians', icon: Waves, species: ['Frog', 'Salamander', 'Newt'] },
+  { id: 'invertebrate', name: 'Invertebrates', icon: Bug, species: ['Hermit crab', 'Tarantula', 'Snail', 'Ant farm'] },
 ];
 
 const AVATAR_STYLES = [
@@ -118,7 +145,6 @@ const PetProfilePage: React.FC = () => {
       setSaveSuccess(false); 
       setStep(1);
       addNotification('Success', `${completePet.name} is now registered!`, 'success');
-      navigate(AppRoutes.HOME); 
     }, 1800);
   };
 
@@ -138,15 +164,20 @@ const PetProfilePage: React.FC = () => {
       const petIdToRemove = selectedPet.id;
       const petNameToNotify = selectedPet.name;
 
+      // 1. Delete from Firestore
       await deletePet(petIdToRemove);
       
+      // 2. Filter local list
       const updatedPets = pets.filter(p => p.id !== petIdToRemove);
+      
+      // 3. Update Storage
       localStorage.setItem(`ssp_pets_${user.uid}`, JSON.stringify(updatedPets));
       
-      // Update state in order
+      // 4. Update state and redirect view
+      setPets(updatedPets);
       setShowDeleteModal(false);
       setDeleteConfirmation('');
-      setPets(updatedPets);
+      setIsAdding(false); // Ensure we're not in the "Add" step
       
       if (updatedPets.length > 0) {
         setSelectedPet(updatedPets[0]);
@@ -157,7 +188,7 @@ const PetProfilePage: React.FC = () => {
       addNotification('Deleted', `${petNameToNotify}'s profile has been removed.`, 'info');
     } catch (err) {
       console.error("Deletion failed:", err);
-      addNotification('Error', 'Failed to delete profile.', 'error');
+      addNotification('Error', 'Failed to delete profile from database.', 'error');
     } finally {
       setIsDeleting(false);
     }
@@ -357,8 +388,20 @@ const PetProfilePage: React.FC = () => {
             </div>
           ) : (
             <form onSubmit={handleAddPet} className="space-y-6">
-              <input required value={newPet.name} onChange={e => setNewPet({ ...newPet, name: e.target.value })} className="w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold" placeholder="Companion's Name" />
-              <input type="date" required value={newPet.birthday} onChange={e => setNewPet({ ...newPet, birthday: e.target.value })} className="w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold" />
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Companion Name</label>
+                <input required value={newPet.name} onChange={e => setNewPet({ ...newPet, name: e.target.value })} className="w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold" placeholder="e.g. Luna" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Species Detail</label>
+                <select value={newPet.breed} onChange={e => setNewPet({...newPet, breed: e.target.value})} className="w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold appearance-none">
+                  {BREED_DATA[newPet.species || 'Dog']?.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Birthday</label>
+                <input type="date" required value={newPet.birthday} onChange={e => setNewPet({ ...newPet, birthday: e.target.value })} className="w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold" />
+              </div>
               <button type="submit" className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-black transition-all">Complete Registration</button>
             </form>
           )}
