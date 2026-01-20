@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from "react-router-dom";
 import { useAuth } from '../context/AuthContext';
@@ -10,11 +9,9 @@ import {
   Dog, Plus, PawPrint, Camera, CheckCircle2, Bird, Fish, Thermometer,  
   Trash2, Stethoscope, Brain, Wand2, Scan, X, Syringe, TrendingUp, Loader2, QrCode, ArrowRight, Palette, Sparkles, AlertTriangle, Bot, Heart, Bug, Waves,
   Star, 
-  Layers,
   Sparkle,
   Zap,
   Download,
-  Activity,
   ChevronDown,
   ShieldCheck
 } from 'lucide-react';
@@ -84,7 +81,13 @@ const calculateAge = (birthday: string) => {
   if (!birthday) return { years: 0, months: 0 };
   const birthDate = new Date(birthday);
   const today = new Date();
-  if (birthDate > today) return { years: 0, months: 0 };
+  
+  // Biological limit check (e.g., 50 years)
+  const maxAgeLimit = 50;
+  if (birthDate > today || today.getFullYear() - birthDate.getFullYear() > maxAgeLimit) {
+    return { years: 0, months: 0, invalid: true };
+  }
+
   let years = today.getFullYear() - birthDate.getFullYear();
   let months = today.getMonth() - birthDate.getMonth();
   if (months < 0) { years--; months += 12; }
@@ -163,13 +166,17 @@ const PetProfilePage: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(true);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qrFileInputRef = useRef<HTMLInputElement>(null);
 
   const todayStr = new Date().toISOString().split('T')[0];
+  const minDate = useMemo(() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 50); // Set absolute minimum to 50 years ago
+    return d.toISOString().split('T')[0];
+  }, []);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -226,8 +233,13 @@ const PetProfilePage: React.FC = () => {
        return;
     }
 
+    const { years, months, invalid } = calculateAge(newPet.birthday);
+    if (invalid) {
+       addNotification('Biological Limit', 'Age exceeds biological limits (max 50 years).', 'error');
+       return;
+    }
+
     const id = `SSP-${Date.now()}`;
-    const { years, months } = calculateAge(newPet.birthday || '');
     const completePet: PetProfile = { 
         ...newPet as PetProfile, 
         id, 
@@ -256,24 +268,14 @@ const PetProfilePage: React.FC = () => {
   const handleDeletePet = async () => {
     if (!selectedPet || !user) return;
     
-    const inputMatch = deleteConfirmation.trim().toLowerCase();
-    const targetMatch = selectedPet.name.trim().toLowerCase();
-    
-    if (inputMatch !== targetMatch) {
-      addNotification('Validation Error', 'The typed name does not match.', 'warning');
-      return;
-    }
-
     setIsDeleting(true);
     try {
       await deletePet(selectedPet.id);
       const updatedPets = pets.filter(p => p.id !== selectedPet.id);
       
-      // Update internal state and cache
-      setPets(updatedPets);
       localStorage.setItem(`ssp_pets_${user.uid}`, JSON.stringify(updatedPets));
+      setPets(updatedPets);
       
-      // Select the remaining pet if available
       if (updatedPets.length > 0) {
         setSelectedPet(updatedPets[0]);
       } else {
@@ -282,10 +284,9 @@ const PetProfilePage: React.FC = () => {
 
       addNotification('Profile Removed', `${selectedPet.name}'s registry has been purged.`, 'info');
       setShowDeleteModal(false);
-      setDeleteConfirmation('');
-      setIsAdding(false);
+      setIsAdding(false); 
     } catch (err) {
-      addNotification('System Error', 'Failed to remove pet.', 'error');
+      addNotification('System Error', 'Failed to remove pet from registry.', 'error');
     } finally {
       setIsDeleting(false);
     }
@@ -564,7 +565,8 @@ const PetProfilePage: React.FC = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Birthday</label>
-                    <input type="date" required max={todayStr} value={newPet.birthday} onChange={e => setNewPet({ ...newPet, birthday: e.target.value })} className="w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold" />
+                    <input type="date" required min={minDate} max={todayStr} value={newPet.birthday} onChange={e => setNewPet({ ...newPet, birthday: e.target.value })} className="w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold" />
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Maximum age limit: 50 years</p>
                   </div>
                   <button type="submit" className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-black transition-all">Initialize Profile</button>
                 </form>
@@ -615,7 +617,7 @@ const PetProfilePage: React.FC = () => {
                     <h3 className="text-4xl font-black text-slate-900 tracking-tighter">{selectedPet.name}</h3>
                     <p className="text-[10px] font-black text-theme uppercase tracking-[0.2em]">{selectedPet.breed} · {selectedPet.species}</p>
                     <button 
-                      onClick={() => { setShowDeleteModal(true); setDeleteConfirmation(''); }}
+                      onClick={() => setShowDeleteModal(true)}
                       className="mt-6 flex items-center gap-2 mx-auto text-rose-400 hover:text-rose-600 font-bold text-[10px] uppercase tracking-widest transition-colors cursor-pointer"
                     >
                       <Trash2 size={14} /> Purge Profile
@@ -687,7 +689,7 @@ const PetProfilePage: React.FC = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 ml-1">Log Date</label>
-                          <input type="date" required max={todayStr} min={selectedPet.birthday} value={newRecord.date} onChange={e => setNewRecord({...newRecord, date: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
+                          <input type="date" required min={selectedPet.birthday} max={todayStr} value={newRecord.date} onChange={e => setNewRecord({...newRecord, date: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
                         </div>
                         {isAddingRecord === 'vaccine' ? (
                           <>
@@ -878,7 +880,7 @@ const PetProfilePage: React.FC = () => {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedPet && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md animate-in fade-in">
-          <div className="bg-white rounded-[2.5rem] w-full max-md shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
             <div className="p-8 bg-rose-50 border-b border-rose-100 flex items-center gap-4">
               <div className="p-3 bg-white rounded-2xl text-rose-500 shadow-sm">
                 <AlertTriangle size={24} />
@@ -889,38 +891,28 @@ const PetProfilePage: React.FC = () => {
               </div>
             </div>
             
-            <div className="p-8 space-y-6">
-              <p className="text-slate-600 font-medium text-sm leading-relaxed">
-                To confirm permanent deletion of <strong>{selectedPet.name}</strong>, please type their name exactly as shown.
-              </p>
-              
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Identity Confirmation</label>
-                <input 
-                  autoFocus
-                  type="text" 
-                  placeholder={`Type "${selectedPet.name}" to confirm`} 
-                  value={deleteConfirmation}
-                  onChange={(e) => setDeleteConfirmation(e.target.value)}
-                  className="w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-rose-500/20 border border-slate-100 font-bold text-slate-800"
-                />
+            <div className="p-8 space-y-8">
+              <div className="bg-slate-50 p-6 rounded-[1.5rem] border border-slate-100">
+                <p className="text-slate-600 font-medium text-sm leading-relaxed text-center">
+                  Are you sure you want to permanently delete <strong className="text-slate-900 font-black">{selectedPet.name}</strong> from the guardian network?
+                </p>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-4">
                 <button 
-                  onClick={() => { setShowDeleteModal(false); setDeleteConfirmation(''); }}
+                  onClick={() => setShowDeleteModal(false)}
                   disabled={isDeleting}
-                  className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all"
+                  className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95"
                 >
                   Abort
                 </button>
                 <button 
                   onClick={handleDeletePet}
-                  disabled={deleteConfirmation.trim().toLowerCase() !== selectedPet.name.trim().toLowerCase() || isDeleting}
-                  className="flex-1 py-4 bg-rose-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                  disabled={isDeleting}
+                  className="flex-1 py-4 bg-rose-500 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-rose-600 transition-all shadow-xl shadow-rose-500/20 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
                 >
                   {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-                  PURGE PROFILE
+                  Confirm Purge
                 </button>
               </div>
             </div>
