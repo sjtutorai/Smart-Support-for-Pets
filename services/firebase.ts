@@ -169,13 +169,13 @@ export const loginWithIdentifier = async (identifier: string, password: string) 
   await syncUserToDb(userCredential.user);
   return userCredential.user;
 };
-export const signUpWithEmail = async (email: string, password: string, fullName: string, username: string) => {
+export const signUpWithEmail = async (email: string, password: string, fullName: string, username: string, phoneNumber: string = '') => {
   if (await isUsernameTaken(username, '')) throw { code: 'auth/username-already-in-use' };
   const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
   const user = userCredential.user;
   await updateProfile(user, { displayName: fullName });
   try { await sendEmailVerification(user); } catch (e) { console.warn("Verification email failed:", e); }
-  await syncUserToDb(user, { displayName: fullName, username: username.toLowerCase().trim() });
+  await syncUserToDb(user, { displayName: fullName, username: username.toLowerCase().trim(), phoneNumber });
   return user;
 };
 export const resendVerificationEmail = async () => {
@@ -219,7 +219,7 @@ export const startChat = async (currentUserId: string, targetUserId: string): Pr
   const participants = [currentUserId, targetUserId].sort();
   const q = query(collection(db, "chats"), where("participants", "==", participants), limit(1));
   const querySnapshot = await getDocs(q);
-  if (!querySnapshot.empty) return querySnapshot.docs[0].id;
+  if (!querySnapshot.empty) return querySnapshot.id;
   const newChatRef = await addDoc(collection(db, "chats"), { participants, lastMessage: '', createdAt: serverTimestamp(), lastTimestamp: serverTimestamp() });
   return newChatRef.id;
 };

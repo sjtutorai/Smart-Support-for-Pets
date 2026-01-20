@@ -311,7 +311,7 @@ const Home: React.FC = () => {
                   onClick={handleUpdateStat}
                   className="flex-[2] py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-black shadow-xl transition-all active:scale-95"
                 >
-                  <Save size={18} /> Update Stat
+                  <Save size={18} /> Update Status
                 </button>
               </div>
            </div>

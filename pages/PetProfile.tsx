@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from "react-router-dom";
 import { useAuth } from '../context/AuthContext';
@@ -167,6 +168,8 @@ const PetProfilePage: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qrFileInputRef = useRef<HTMLInputElement>(null);
+
+  const todayStr = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -561,7 +564,7 @@ const PetProfilePage: React.FC = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Birthday</label>
-                    <input type="date" required value={newPet.birthday} onChange={e => setNewPet({ ...newPet, birthday: e.target.value })} className="w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold" />
+                    <input type="date" required max={todayStr} value={newPet.birthday} onChange={e => setNewPet({ ...newPet, birthday: e.target.value })} className="w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold" />
                   </div>
                   <button type="submit" className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-black transition-all">Initialize Profile</button>
                 </form>
@@ -684,7 +687,7 @@ const PetProfilePage: React.FC = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 ml-1">Log Date</label>
-                          <input type="date" required value={newRecord.date} onChange={e => setNewRecord({...newRecord, date: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
+                          <input type="date" required max={todayStr} min={selectedPet.birthday} value={newRecord.date} onChange={e => setNewRecord({...newRecord, date: e.target.value})} className="w-full p-4 rounded-xl bg-white border border-slate-100 font-bold text-sm" />
                         </div>
                         {isAddingRecord === 'vaccine' ? (
                           <>

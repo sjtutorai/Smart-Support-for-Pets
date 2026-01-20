@@ -23,6 +23,7 @@ const PublicPetProfile = lazy(() => import('./pages/PublicPetProfile'));
 const UserProfile = lazy(() => import('./pages/UserProfile'));
 const UsernameDataStore = lazy(() => import('./pages/UsernameDataStore'));
 const PetProfilePage = lazy(() => import('./pages/PetProfile'));
+const Contact = lazy(() => import('./pages/Contact'));
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -78,6 +79,7 @@ const AppContent: React.FC = () => {
         <Route path={AppRoutes.CREATE_POST} element={<ProtectedRoute><Community /></ProtectedRoute>} />
         <Route path={AppRoutes.CHAT} element={<ProtectedRoute><Chat /></ProtectedRoute>} />
         <Route path={AppRoutes.FIND_FRIENDS} element={<ProtectedRoute><FindFriends /></ProtectedRoute>} />
+        <Route path={AppRoutes.CONTACT} element={<ProtectedRoute><Contact /></ProtectedRoute>} />
         <Route path="/pet/:petId" element={<ProtectedRoute><PublicPetProfile /></ProtectedRoute>} />
         <Route path="/user/:username" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
         <Route path="/usernamedatastore" element={<ProtectedRoute><UsernameDataStore /></ProtectedRoute>} />

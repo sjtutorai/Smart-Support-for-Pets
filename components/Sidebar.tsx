@@ -1,3 +1,4 @@
+
 import React from 'react';
 // Fix: Re-importing react-router-dom members using single quotes to resolve module issues
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -14,7 +15,8 @@ import {
   User as UserIcon,
   Search,
   LayoutDashboard,
-  Settings
+  Settings,
+  Mail
 } from 'lucide-react';
 import { AppRoutes } from '../types';
 import { logout } from '../services/firebase';
@@ -53,6 +55,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
       items: [
         { label: 'Wellness Hub', path: AppRoutes.PET_CARE, icon: Stethoscope },
         { label: 'Registry', path: AppRoutes.PET_PROFILE, icon: Dog },
+      ]
+    },
+    {
+      title: "Support & Legal",
+      items: [
+        { label: 'Contact', path: AppRoutes.CONTACT, icon: Mail },
+        { label: 'Settings', path: AppRoutes.SETTINGS, icon: Settings },
       ]
     }
   ];
@@ -95,7 +104,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
             <div className="w-12 h-12 bg-white border border-slate-100 rounded-2xl p-2.5 flex items-center justify-center shrink-0 shadow-lg group-hover:rotate-6 transition-all duration-500">
               <img src={LOGO_URL} alt="Logo" className="w-full h-full object-contain" />
             </div>
-            {/* BRAND NAME REMOVED TO FOCUS ON PAGE TITLES IN HEADER */}
+            {!isCollapsed && (
+              <div className="flex flex-col animate-in fade-in slide-in-from-left-2">
+                <span className="text-[15px] font-black text-slate-900 tracking-tighter leading-none">SS Paw Pal</span>
+                <span className="text-[8px] font-black text-theme uppercase tracking-widest mt-1">Guardian Network</span>
+              </div>
+            )}
           </Link>
           <button 
             onClick={() => setIsOpen(false)} 
