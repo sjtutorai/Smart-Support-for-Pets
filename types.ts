@@ -51,6 +51,8 @@ export interface PetProfile {
   breed: string;
   birthday: string;
   bio: string;
+  temperament?: string;
+  avatarStylePreference?: string;
   avatarUrl?: string;
   qrCodeUrl?: string;
   ageYears?: string;
