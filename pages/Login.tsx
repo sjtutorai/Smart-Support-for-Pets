@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Loader2, AlertCircle, Eye, EyeOff, CheckCircle2, Phone as PhoneIcon, ChevronDown, Search } from 'lucide-react';
+import { Loader2, AlertCircle, Eye, EyeOff, CheckCircle2, Phone as PhoneIcon, ChevronDown, Search, Info } from 'lucide-react';
 import { 
   loginWithGoogle, 
   loginWithApple, 
@@ -29,6 +29,7 @@ const Login: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [infoMessage, setInfoMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -81,6 +82,7 @@ const Login: React.FC = () => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     if (error) setError('');
+    if (infoMessage) setInfoMessage('');
   };
 
   const formatFirebaseError = (err: any) => {
@@ -92,6 +94,7 @@ const Login: React.FC = () => {
       case 'auth/email-already-in-use': return "This email is already registered.";
       case 'auth/weak-password': return "Password is not secure enough.";
       case 'auth/username-already-in-use': return "This handle is already taken.";
+      case 'auth/email-not-verified': return "email-not-verified"; // Special handling
       default: return err.message || "An unexpected error occurred.";
     }
   };
@@ -133,6 +136,7 @@ const Login: React.FC = () => {
     e.preventDefault();
     if (isLoading) return;
     setError('');
+    setInfoMessage('');
     if (!validate()) return;
 
     setIsLoading(true);
@@ -143,13 +147,17 @@ const Login: React.FC = () => {
       } else {
         const fullPhone = `${formData.phoneCode} ${formData.phoneNumber.trim()}`;
         await signUpWithEmail(formData.identifier, formData.password, formData.fullName, formData.username, fullPhone);
-        setSuccessMessage("Identity verified. Welcome to the pack.");
-        setTimeout(() => navigate('/', { replace: true }), 1500);
+        setSuccessMessage("Identity registered. A verification link has been sent to your email.");
       }
     } catch (err: any) {
-      setError(formatFirebaseError(err));
+      const formatted = formatFirebaseError(err);
+      if (formatted === 'email-not-verified') {
+        setInfoMessage("Identity detected, but verification is pending. A new link has been dispatched to your inbox.");
+      } else {
+        setError(formatted);
+      }
     } finally {
-      if (isLogin) setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -176,9 +184,9 @@ const Login: React.FC = () => {
       <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-white rounded-[3rem] shadow-2xl p-12 text-center animate-in zoom-in-95">
           <CheckCircle2 size={64} className="mx-auto text-emerald-500 mb-6" />
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Verified</h2>
-          <p className="text-slate-500 mt-4 font-medium">{successMessage}</p>
-          <Loader2 className="mx-auto mt-8 w-8 h-8 animate-spin text-indigo-600" />
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Access Logged</h2>
+          <p className="text-slate-500 mt-4 font-medium leading-relaxed">{successMessage}</p>
+          <button onClick={() => { setSuccessMessage(''); setIsLogin(true); }} className="mt-8 px-8 py-3 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Proceed to Sign In</button>
         </div>
       </div>
     );
@@ -201,6 +209,13 @@ const Login: React.FC = () => {
           <div className="mb-6 p-4 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl text-[11px] font-bold flex items-start gap-3">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{error}</span>
+          </div>
+        )}
+
+        {infoMessage && (
+          <div className="mb-6 p-4 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl text-[11px] font-bold flex items-start gap-3">
+            <Info className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>{infoMessage}</span>
           </div>
         )}
 
@@ -308,6 +323,7 @@ const Login: React.FC = () => {
               onClick={() => {
                 setIsLogin(!isLogin);
                 setError('');
+                setInfoMessage('');
               }}
               className="text-indigo-600 font-black uppercase tracking-widest text-[10px] hover:underline"
             >

@@ -1,4 +1,3 @@
-
 import React from 'react';
 // Fix: Re-importing react-router-dom members using single quotes to resolve module issues
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -100,14 +99,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
         
         {/* Sidebar Header branding */}
         <div className="h-24 flex items-center px-6 shrink-0 border-b border-slate-50 relative">
-          <Link to={AppRoutes.HOME} className="flex items-center gap-4 group">
+          <Link to={AppRoutes.HOME} className="flex items-center gap-4 group w-full">
             <div className="w-12 h-12 bg-white border border-slate-100 rounded-2xl p-2.5 flex items-center justify-center shrink-0 shadow-lg group-hover:rotate-6 transition-all duration-500">
               <img src={LOGO_URL} alt="Logo" className="w-full h-full object-contain" />
             </div>
             {!isCollapsed && (
-              <div className="flex flex-col animate-in fade-in slide-in-from-left-2">
-                <span className="text-[15px] font-black text-slate-900 tracking-tighter leading-none">SS Paw Pal</span>
-                <span className="text-[8px] font-black text-theme uppercase tracking-widest mt-1">Guardian Network</span>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[16px] font-black text-slate-900 tracking-tighter leading-none truncate">SS Paw Pal</span>
+                <span className="text-[9px] font-black text-theme uppercase tracking-widest mt-1 truncate">Guardian Network</span>
               </div>
             )}
           </Link>

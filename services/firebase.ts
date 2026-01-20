@@ -1,4 +1,3 @@
-
 import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
@@ -135,7 +134,10 @@ export const searchPetsAndOwners = async (searchText: string): Promise<{ pet: Pe
   const lowerCaseSearch = searchText.toLowerCase();
   const petsQuery = query(collection(db, "pets"), where("lowercaseName", ">=", lowerCaseSearch), where("lowercaseName", "<=", lowerCaseSearch + '\uf8ff'), limit(10));
   const ownersQuery = query(collection(db, "users"), where("lowercaseDisplayName", ">=", lowerCaseSearch), where("lowercaseDisplayName", "<=", lowerCaseSearch + '\uf8ff'), limit(10));
+  
+  // FIX: Passing ownersQuery instead of the uninitialized ownersSnapshot variable to the second getDocs call
   const [petsSnapshot, ownersSnapshot] = await Promise.all([getDocs(petsQuery), getDocs(ownersQuery)]);
+  
   const resultsMap = new Map<string, { pet: PetProfile, owner: User | null }>();
   const petResults = petsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as PetProfile);
   for (const pet of petResults) { if (!resultsMap.has(pet.id)) { const owner = pet.ownerId ? await getUserById(pet.ownerId) : null; resultsMap.set(pet.id, { pet, owner }); } }
@@ -166,8 +168,22 @@ export const loginWithIdentifier = async (identifier: string, password: string) 
     if (!querySnapshot.empty) { const userData = querySnapshot.docs[0].data(); if (userData.email) email = userData.email; }
   }
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
-  await syncUserToDb(userCredential.user);
-  return userCredential.user;
+  const user = userCredential.user;
+
+  // Security Policy: Ensure email verification for traditional email/password login
+  if (!user.emailVerified) {
+    try {
+      await sendEmailVerification(user);
+    } catch (err) {
+      console.warn("Verification auto-dispatch failed:", err);
+    }
+    // Sign out immediately if not verified to block session establishment
+    await signOut(auth);
+    throw { code: 'auth/email-not-verified' };
+  }
+
+  await syncUserToDb(user);
+  return user;
 };
 export const signUpWithEmail = async (email: string, password: string, fullName: string, username: string, phoneNumber: string = '') => {
   if (await isUsernameTaken(username, '')) throw { code: 'auth/username-already-in-use' };
@@ -219,7 +235,7 @@ export const startChat = async (currentUserId: string, targetUserId: string): Pr
   const participants = [currentUserId, targetUserId].sort();
   const q = query(collection(db, "chats"), where("participants", "==", participants), limit(1));
   const querySnapshot = await getDocs(q);
-  if (!querySnapshot.empty) return querySnapshot.id;
+  if (!querySnapshot.empty) return querySnapshot.docs[0].id;
   const newChatRef = await addDoc(collection(db, "chats"), { participants, lastMessage: '', createdAt: serverTimestamp(), lastTimestamp: serverTimestamp() });
   return newChatRef.id;
 };

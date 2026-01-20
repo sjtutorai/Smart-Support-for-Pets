@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   Mail, 
@@ -133,32 +132,32 @@ const Contact: React.FC = () => {
             <form onSubmit={handleSendMail} className="space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Full Identity</label>
+                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Your Name</label>
                   <input 
                     name="name"
                     required
                     value={formData.name}
                     onChange={handleChange}
-                    placeholder="Your Name" 
+                    placeholder="e.g. Sadanand Jyoti" 
                     className="w-full p-6 bg-slate-50/50 border border-slate-100 rounded-[1.5rem] text-lg font-bold text-slate-800 outline-none focus:bg-white focus:ring-8 ring-indigo-500/5 transition-all"
                   />
                 </div>
                 <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Communication Hub (Email)</label>
+                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Email Address</label>
                   <input 
                     name="email"
                     type="email"
                     required
                     value={formData.email}
                     onChange={handleChange}
-                    placeholder="Email Address" 
+                    placeholder="hello@example.com" 
                     className="w-full p-6 bg-slate-50/50 border border-slate-100 rounded-[1.5rem] text-lg font-bold text-slate-800 outline-none focus:bg-white focus:ring-8 ring-indigo-500/5 transition-all"
                   />
                 </div>
               </div>
 
               <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Topic Protocol (Subject)</label>
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Subject</label>
                 <input 
                   name="subject"
                   required
@@ -170,13 +169,13 @@ const Contact: React.FC = () => {
               </div>
 
               <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Encrypted Message Payload</label>
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Your Message</label>
                 <textarea 
                   name="message"
                   required
                   value={formData.message}
                   onChange={handleChange}
-                  placeholder="Your Message..." 
+                  placeholder="How can we help you today?" 
                   className="w-full p-8 bg-slate-50/50 border border-slate-100 rounded-[2rem] text-lg font-bold text-slate-800 outline-none focus:bg-white focus:ring-8 ring-indigo-500/5 transition-all resize-none min-h-[250px]"
                 ></textarea>
               </div>
