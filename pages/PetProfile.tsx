@@ -17,7 +17,8 @@ import {
   Info,
   Calendar,
   Baby,
-  Smile
+  Smile,
+  FileText
 } from 'lucide-react';
 import { PetProfile, WeightRecord, VaccinationRecord, AppRoutes } from '../types';
 
@@ -267,27 +268,44 @@ const PetProfilePage: React.FC = () => {
     for (const pet of updatedPets) await syncPetToDb(pet);
   };
 
+  const validateField = (name: string, value: string) => {
+    let error = '';
+    if (name === 'name') {
+      if (!value.trim()) error = 'Companion name is required.';
+      else if (value.trim().length < 2) error = 'Name must be at least 2 characters.';
+    } else if (name === 'birthday') {
+      if (!value) error = 'Birthday is required.';
+      else {
+        const { invalid, limit } = calculateAge(value, newPet.species);
+        if (invalid) error = `Age exceeds known limits for a ${newPet.species} (${limit} years).`;
+      }
+    } else if (name === 'temperament') {
+      if (!value.trim()) error = 'Temperament details are required.';
+      else if (value.trim().length < 10) error = 'Please provide more personality details (min 10 chars).';
+    } else if (name === 'bio') {
+      if (!value.trim()) error = 'Pet Biography is required.';
+      else if (value.trim().length < 20) error = 'Biography should be more descriptive (min 20 chars).';
+    }
+    setFormErrors(prev => ({ ...prev, [name]: error }));
+    return !error;
+  };
+
   const handleAddPet = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     
-    // Final validation check
-    const errors: Record<string, string> = {};
-    if (!newPet.name?.trim()) errors.name = 'Companion name is required.';
-    if (!newPet.birthday) errors.birthday = 'Birthday is required.';
-    if (!newPet.temperament?.trim()) errors.temperament = 'Temperament details are required.';
+    // Final check
+    const isNameValid = validateField('name', newPet.name || '');
+    const isBirthdayValid = validateField('birthday', newPet.birthday || '');
+    const isTempValid = validateField('temperament', newPet.temperament || '');
+    const isBioValid = validateField('bio', newPet.bio || '');
     
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      addNotification('Validation Error', 'Please correct the highlighted fields.', 'warning');
+    if (!isNameValid || !isBirthdayValid || !isTempValid || !isBioValid) {
+      addNotification('Validation Error', 'Please complete all fields correctly.', 'warning');
       return;
     }
 
-    const { years, months, invalid, limit } = calculateAge(newPet.birthday!, newPet.species!);
-    if (invalid) {
-       addNotification('Biological Limit', `Age exceeds known limits for a ${newPet.species} (${limit} years).`, 'error');
-       return;
-    }
+    const { years, months } = calculateAge(newPet.birthday!, newPet.species!);
 
     const id = `SSP-${Date.now()}`;
     const completePet: PetProfile = { 
@@ -299,7 +317,7 @@ const PetProfilePage: React.FC = () => {
         ageMonths: String(months), 
         weightHistory: [], 
         vaccinations: [], 
-        isPublic: true, // Default to public for QR discovery
+        isPublic: true, 
         lowercaseName: newPet.name?.toLowerCase() || ''
     };
     const updatedPets = [...pets, completePet];
@@ -352,10 +370,9 @@ const PetProfilePage: React.FC = () => {
     if (!qrImg) return;
     const ctx = canvas.getContext('2d');
     
-    // Draw onto canvas for download
-    const imgSize = 1000; // High resolution for download
+    const imgSize = 1200; 
     canvas.width = imgSize;
-    canvas.height = imgSize;
+    canvas.height = imgSize + 150; 
     
     if (ctx) {
        ctx.fillStyle = "white";
@@ -364,19 +381,22 @@ const PetProfilePage: React.FC = () => {
        const img = new Image();
        img.crossOrigin = "anonymous";
        img.onload = () => {
-         ctx.drawImage(img, 50, 50, imgSize - 100, imgSize - 100);
+         ctx.drawImage(img, 100, 100, imgSize - 200, imgSize - 200);
          
-         // Add some branding to the download
+         ctx.fillStyle = "#0f172a";
+         ctx.font = "black 70px Inter";
+         ctx.textAlign = "center";
+         ctx.fillText(`${selectedPet.name}`, imgSize/2, imgSize);
+         
          ctx.fillStyle = "#4f46e5";
          ctx.font = "bold 40px Inter";
-         ctx.textAlign = "center";
-         ctx.fillText(`${selectedPet.name}'s Digital ID`, imgSize/2, imgSize - 40);
+         ctx.fillText(`SS PAW PAL DIGITAL IDENTITY`, imgSize/2, imgSize + 70);
          
          const link = document.createElement('a');
-         link.download = `${selectedPet.name}-digital-id.png`;
+         link.download = `${selectedPet.name}-identity-card.png`;
          link.href = canvas.toDataURL('image/png');
          link.click();
-         addNotification('Identity Exported', 'Digital ID PNG downloaded.', 'success');
+         addNotification('Identity Exported', 'High-res Digital ID ready.', 'success');
        };
        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data=${encodeURIComponent(publicProfileUrl)}`;
     }
@@ -437,7 +457,6 @@ const PetProfilePage: React.FC = () => {
       for (const part of response.candidates[0].content.parts) {
         if (part.inlineData) {
           const avatarUrl = `data:image/png;base64,${part.inlineData.data}`;
-          // Store preference
           const updatedPet = { ...selectedPet, avatarUrl, avatarStylePreference: style.id };
           const updatedPets = pets.map(p => p.id === selectedPet.id ? updatedPet : p);
           await savePetsToStorage(updatedPets);
@@ -487,7 +506,6 @@ const PetProfilePage: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  // QR Code links to public profile
   const publicProfileUrl = useMemo(() => {
     return selectedPet ? `${window.location.origin}/#/pet/${selectedPet.id}` : '';
   }, [selectedPet?.id]);
@@ -573,13 +591,12 @@ const PetProfilePage: React.FC = () => {
                       onChange={e => {
                         const val = e.target.value;
                         setNewPet({ ...newPet, name: val });
-                        if (val.trim()) setFormErrors(prev => ({ ...prev, name: '' }));
+                        validateField('name', val);
                       }} 
                       className={`w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold transition-all ${formErrors.name ? 'ring-2 ring-rose-500/20 bg-rose-50/10' : ''}`} 
                       placeholder="e.g. Luna" 
                     />
-                    {formErrors.name && <p className="text-[10px] text-rose-500 font-bold ml-1">{formErrors.name}</p>}
-                    {newPet.name && newPet.name.length < 2 && !formErrors.name && <p className="text-[9px] text-rose-400 font-black uppercase tracking-widest ml-1 animate-pulse">Name too short</p>}
+                    {formErrors.name && <p className="text-[10px] text-rose-500 font-bold ml-1 animate-in fade-in">{formErrors.name}</p>}
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Species Detail</label>
@@ -601,29 +618,45 @@ const PetProfilePage: React.FC = () => {
                       onChange={e => {
                         const val = e.target.value;
                         setNewPet({ ...newPet, birthday: val });
-                        if (val) setFormErrors(prev => ({ ...prev, birthday: '' }));
+                        validateField('birthday', val);
                       }} 
                       className={`w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold transition-all ${formErrors.birthday ? 'ring-2 ring-rose-500/20 bg-rose-50/10' : ''}`} 
                     />
-                    {formErrors.birthday && <p className="text-[10px] text-rose-500 font-bold ml-1">{formErrors.birthday}</p>}
+                    {formErrors.birthday && <p className="text-[10px] text-rose-500 font-bold ml-1 animate-in fade-in">{formErrors.birthday}</p>}
                   </div>
                   
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Temperament & Personality</label>
                     <textarea 
                       required 
-                      rows={4}
+                      rows={3}
                       value={newPet.temperament} 
                       onChange={e => {
                         const val = e.target.value;
                         setNewPet({ ...newPet, temperament: val });
-                        if (val.trim()) setFormErrors(prev => ({ ...prev, temperament: '' }));
+                        validateField('temperament', val);
                       }} 
                       placeholder="Describe their habits, personality, likes and dislikes..."
                       className={`w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold transition-all resize-none ${formErrors.temperament ? 'ring-2 ring-rose-500/20 bg-rose-50/10' : ''}`} 
                     />
-                    {formErrors.temperament && <p className="text-[10px] text-rose-500 font-bold ml-1">{formErrors.temperament}</p>}
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Tell us what makes them unique!</p>
+                    {formErrors.temperament && <p className="text-[10px] text-rose-500 font-bold ml-1 animate-in fade-in">{formErrors.temperament}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Pet Biography</label>
+                    <textarea 
+                      required 
+                      rows={4}
+                      value={newPet.bio} 
+                      onChange={e => {
+                        const val = e.target.value;
+                        setNewPet({ ...newPet, bio: val });
+                        validateField('bio', val);
+                      }} 
+                      placeholder="Detailed description of their life story, funny habits, or anything you'd like to share..."
+                      className={`w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold transition-all resize-none ${formErrors.bio ? 'ring-2 ring-rose-500/20 bg-rose-50/10' : ''}`} 
+                    />
+                    {formErrors.bio && <p className="text-[10px] text-rose-500 font-bold ml-1 animate-in fade-in">{formErrors.bio}</p>}
                   </div>
 
                   <button type="submit" className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-black transition-all">Initialize Profile</button>
@@ -687,7 +720,7 @@ const PetProfilePage: React.FC = () => {
                    <div className="bg-white p-6 rounded-[2rem] mx-auto w-44 h-44 flex items-center justify-center shadow-inner group relative overflow-hidden">
                       <img 
                         id="pet-qr-img"
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(publicProfileUrl)}`} 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(publicProfileUrl)}`} 
                         alt="Pet QR ID" 
                         className="w-full h-full object-contain mix-blend-multiply"
                         crossOrigin="anonymous"
@@ -760,6 +793,22 @@ const PetProfilePage: React.FC = () => {
                   <div className="bg-slate-50 p-6 rounded-[1.5rem] border border-slate-100">
                     <p className="text-slate-600 font-medium leading-relaxed italic">
                       {selectedPet.temperament || "No temperament details provided yet."}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Bio Display */}
+                <div className="bg-white rounded-[2.5rem] p-8 border border-slate-50 shadow-sm flex flex-col">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl"><FileText size={24} /></div>
+                    <div>
+                      <h4 className="font-black text-xl text-slate-900 leading-none">Pet Biography</h4>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Life Story & Details</p>
+                    </div>
+                  </div>
+                  <div className="bg-slate-50 p-6 rounded-[1.5rem] border border-slate-100">
+                    <p className="text-slate-600 font-medium leading-relaxed">
+                      {selectedPet.bio || "No biography provided yet."}
                     </p>
                   </div>
                 </div>

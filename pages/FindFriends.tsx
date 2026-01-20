@@ -1,23 +1,28 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Loader2, PawPrint, User as UserIcon, AtSign, Users, ArrowRight } from 'lucide-react';
+import { Search, Loader2, User as UserIcon, AtSign, Users, ArrowRight } from 'lucide-react';
 import { getAllUsers } from '../services/firebase';
 import { Link } from 'react-router-dom';
 import { User } from '../types';
 import FollowButton from '../components/FollowButton';
+import { useAuth } from '../context/AuthContext';
 
 const FindFriends: React.FC = () => {
+  const { user: currentUser } = useAuth();
   const [searchText, setSearchText] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUsers = async () => {
       setIsLoading(true);
+      setError(null);
       try {
         const allUsers = await getAllUsers();
         setUsers(allUsers);
       } catch (error) {
         console.error("Error fetching community users:", error);
+        setError("Failed to load users. Please try again later.");
       } finally {
         setIsLoading(false);
       }
@@ -26,13 +31,16 @@ const FindFriends: React.FC = () => {
   }, []);
 
   const filteredUsers = useMemo(() => {
-    if (!searchText.trim()) return users;
+    // Filter out current user from the list
+    let userList = users.filter(u => u.uid !== currentUser?.uid);
+
+    if (!searchText.trim()) return userList;
     const query = searchText.toLowerCase();
-    return users.filter(u => 
-      u.displayName?.toLowerCase().includes(query) || 
+    return userList.filter(u =>
+      u.displayName?.toLowerCase().includes(query) ||
       u.username?.toLowerCase().includes(query)
     );
-  }, [users, searchText]);
+  }, [users, searchText, currentUser]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-10 pb-20 animate-fade-in">
@@ -44,13 +52,13 @@ const FindFriends: React.FC = () => {
         <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm">
           <Users size={18} className="text-theme" />
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-            {users.length} Active Guardians
+            {filteredUsers.length} {searchText.trim() ? 'Results' : 'Active Guardians'}
           </span>
         </div>
       </div>
 
       <div className="relative group">
-        <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-theme transition-colors">
+        <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-theme transition-colors" aria-hidden="true">
           <Search size={22} />
         </div>
         <input
@@ -58,6 +66,7 @@ const FindFriends: React.FC = () => {
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           placeholder="Search by name or handle..."
+          aria-label="Search for pet parents by name or username"
           className="w-full bg-white border border-slate-100 rounded-[2rem] py-6 pl-16 pr-6 text-lg font-bold outline-none focus:ring-8 focus:ring-theme/5 transition-all shadow-xl shadow-slate-200/40"
         />
       </div>
@@ -67,6 +76,12 @@ const FindFriends: React.FC = () => {
           <div className="col-span-full py-20 flex flex-col items-center gap-4">
             <Loader2 size={40} className="animate-spin text-theme opacity-20" />
             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Syncing Directory</span>
+          </div>
+        ) : error ? (
+          <div className="col-span-full py-24 text-center bg-white rounded-[3rem] border-2 border-dashed border-red-100">
+            <UserIcon size={48} className="mx-auto text-red-200 mb-4" />
+            <h4 className="font-black text-red-400 uppercase tracking-widest mb-2">Unable to Load Users</h4>
+            <p className="text-sm text-slate-500">{error}</p>
           </div>
         ) : filteredUsers.length === 0 ? (
           <div className="col-span-full py-24 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
