@@ -11,10 +11,15 @@ import {
   Zap,
   CheckCircle,
   AlertCircle,
-  Map
+  Map,
+  Loader2,
+  Dog
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { GoogleGenAI } from "@google/genai";
+import { getPetsByOwnerId } from '../services/firebase';
+// FIX: Import AppRoutes to resolve the reference error on line 141
+import { AppRoutes } from '../types';
 
 const ProgressBar: React.FC<{ label: string, value: number, color: string }> = ({ label, value, color }) => (
   <div className="space-y-2">
@@ -37,11 +42,34 @@ const PetCare: React.FC = () => {
   const [stats, setStats] = useState({ hunger: 70, energy: 40, happiness: 85 });
   const [isAnimating, setIsAnimating] = useState<string | null>(null);
   const [aiTip, setAiTip] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem(`pet_${user?.uid}`);
-    if (saved) setPet(JSON.parse(saved));
-  }, [user]);
+    if (!user?.uid) return;
+
+    const syncRegistry = async () => {
+      setLoading(true);
+      try {
+        const remotePets = await getPetsByOwnerId(user.uid);
+        if (remotePets.length > 0) {
+          setPet(remotePets[0]);
+        } else {
+          // Fallback to local check
+          const saved = localStorage.getItem(`pet_${user.uid}`) || localStorage.getItem(`ssp_pets_${user.uid}`);
+          if (saved) {
+             const parsed = JSON.parse(saved);
+             setPet(Array.isArray(parsed) ? parsed[0] : parsed);
+          }
+        }
+      } catch (err) {
+        console.warn("Registry sync failed:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    syncRegistry();
+  }, [user?.uid]);
 
   const handleAction = (type: string) => {
     setIsAnimating(type);
@@ -98,14 +126,35 @@ const PetCare: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex h-[calc(100vh-200px)] items-center justify-center">
+        <Loader2 className="animate-spin text-theme" size={40} />
+      </div>
+    );
+  }
+
+  if (!pet) {
+    return (
+      <div className="py-40 text-center animate-in zoom-in-95 duration-500">
+        <div className="bg-slate-50 w-24 h-24 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 text-slate-200 shadow-inner"><Dog size={48} /></div>
+        <h3 className="text-3xl font-black text-slate-900 mb-4 tracking-tighter">No Registry Data</h3>
+        <p className="text-slate-500 font-medium mb-10 max-w-sm mx-auto text-sm leading-relaxed">You must register a pet in the registry before accessing the care hub.</p>
+        <button onClick={() => window.location.hash = AppRoutes.PET_PROFILE} className="bg-slate-900 text-white px-10 py-5 rounded-[1.5rem] font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-2xl shadow-slate-200 active:scale-95">
+          Go to Registry
+        </button>
+      </div>
+    );
+  }
+
   const ageData = getAgeMessage();
 
   return (
     <div className="max-w-5xl mx-auto space-y-10 animate-fade-in pb-20">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h2 className="text-4xl font-black text-slate-900 tracking-tight">Pet Care & Treats</h2>
-          <p className="text-slate-500 font-medium">Keep your companion happy, healthy, and energized.</p>
+          <h2 className="text-4xl font-black text-slate-900 tracking-tight">Pet Care Hub</h2>
+          <p className="text-slate-500 font-medium">Keep {pet.name} happy, healthy, and energized.</p>
         </div>
         <button 
           onClick={askAiForTreat}
@@ -122,7 +171,7 @@ const PetCare: React.FC = () => {
           <div className="p-10 text-center relative z-10">
             <div className="mb-10 relative inline-block">
                <div className={`w-56 h-56 rounded-[5rem] bg-indigo-50 border-4 border-white shadow-2xl overflow-hidden mx-auto transition-all duration-500 ${isAnimating ? 'scale-110 rotate-3' : ''}`}>
-                  <img src={`https://picsum.photos/seed/${pet?.name}/600`} alt="Pet" className="w-full h-full object-cover" />
+                  <img src={pet.avatarUrl || `https://picsum.photos/seed/${pet.name}/600`} alt="Pet" className="w-full h-full object-cover" />
                </div>
                {isAnimating && (
                  <div className="absolute -top-4 -right-4 bg-white p-4 rounded-full shadow-2xl animate-bounce">
@@ -214,7 +263,7 @@ const PetCare: React.FC = () => {
             </div>
             <div>
                <h4 className="font-black text-2xl text-indigo-900 tracking-tight">Weather Check</h4>
-               <p className="text-indigo-700 font-medium text-sm mt-1">Looks like it's a great day for an outdoor {pet?.species === 'Dog' ? 'run' : 'patio session'}.</p>
+               <p className="text-indigo-700 font-medium text-sm mt-1">Looks like it's a great day for an outdoor {pet.species === 'Dog' ? 'run' : 'patio session'}.</p>
             </div>
          </div>
          <div className="bg-slate-50 p-10 rounded-[3.5rem] flex items-center gap-8 border border-slate-100">
@@ -223,7 +272,7 @@ const PetCare: React.FC = () => {
             </div>
             <div>
                <h4 className="font-black text-2xl text-slate-800 tracking-tight">Clean Air Notice</h4>
-               <p className="text-slate-500 font-medium text-sm mt-1">Indoor air quality is optimal. Perfect for a cozy long nap for {pet?.name || 'your pet'}.</p>
+               <p className="text-slate-500 font-medium text-sm mt-1">Indoor air quality is optimal. Perfect for a cozy long nap for {pet.name}.</p>
             </div>
          </div>
       </div>

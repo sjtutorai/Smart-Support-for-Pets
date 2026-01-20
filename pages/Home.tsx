@@ -18,13 +18,14 @@ import {
   Edit2,
   X,
   Save,
-  Zap
+  Zap,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { AppRoutes, PetProfile, WeightRecord } from '../types';
 import { STAT_ROUTINE } from '../context/NotificationContext';
-import { syncPetToDb } from '../services/firebase';
+import { syncPetToDb, getPetsByOwnerId } from '../services/firebase';
 
 const StatCard: React.FC<{ 
   icon: React.ElementType, 
@@ -56,6 +57,7 @@ const Home: React.FC = () => {
   const [pets, setPets] = useState<PetProfile[]>([]);
   const [activePet, setActivePet] = useState<PetProfile | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [isLoading, setIsLoading] = useState(true);
   
   const [appointments, setAppointments] = useState(() => localStorage.getItem(`ssp_appointments_${user?.uid}`) || 'None');
   const [exercise, setExercise] = useState(() => localStorage.getItem(`ssp_exercise_${user?.uid}`) || '0');
@@ -72,13 +74,38 @@ const Home: React.FC = () => {
   const currentHour = currentTime.getHours();
 
   useEffect(() => {
-    const saved = localStorage.getItem(`ssp_pets_${user?.uid}`);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setPets(parsed);
-      if (parsed.length > 0 && !activePet) setActivePet(parsed[0]);
-    }
-  }, [user]);
+    if (!user?.uid) return;
+
+    const loadData = async () => {
+      setIsLoading(true);
+      // Try local cache first
+      const saved = localStorage.getItem(`ssp_pets_${user?.uid}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setPets(parsed);
+          if (parsed.length > 0 && !activePet) setActivePet(parsed[0]);
+        } catch (e) {}
+      }
+
+      // Sync with cloud registry
+      try {
+        const remotePets = await getPetsByOwnerId(user.uid);
+        if (remotePets.length > 0) {
+          setPets(remotePets);
+          localStorage.setItem(`ssp_pets_${user.uid}`, JSON.stringify(remotePets));
+          // Update active pet if nothing is set
+          if (!activePet) setActivePet(remotePets[0]);
+        }
+      } catch (err) {
+        console.warn("Home dashboard sync warning:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [user?.uid]);
 
   const handleUpdateStat = async () => {
     if (!user) return;
@@ -137,6 +164,17 @@ const Home: React.FC = () => {
   });
 
   const recentWeight = activePet?.weightHistory?.[activePet.weightHistory.length - 1]?.weight;
+
+  if (isLoading && pets.length === 0) {
+    return (
+      <div className="flex h-[calc(100vh-200px)] items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="animate-spin text-theme" size={40} />
+          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Loading Dashboard...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-12 pb-20 animate-fade-in">
