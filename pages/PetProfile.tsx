@@ -66,8 +66,8 @@ const AVATAR_STYLES = [
     description: 'Ultra-polished digital kawaii aesthetic', 
     isPremium: true,
     prompt: `Generate a high-quality digital pet avatar optimized for a mobile application profile picture. 
-    Art Direction: Modern, premium, and polished cartoon style; soft pastel color palette with smooth gradient lighting and subtle glow highlights; slightly glossy, big expressive eyes; rounded, chubby facial structure for maximum cuteness; clean, crisp vector-style outlines; soft natural shading with gentle shadows for depth; subtle rim lighting. 
-    Composition: Perfectly front-facing and symmetrically centered; framed inside a clean circular border; minimalist light or pastel gradient background with a slight depth blur. 
+    Art Direction: Cute, friendly, and modern cartoon aesthetic; soft pastel color palette with smooth gradient lighting and subtle glow highlights; big expressive eyes and a rounded, chubby face; clean, smooth vector-style outlines with a polished digital finish; soft natural shading and gentle shadows for depth; subtle rim lighting around the edges to make the character pop. 
+    Composition: Perfectly front-facing and symmetrically centered; clearly framed inside a clean circular border suitable for profile icons; simple light or pastel gradient background with a slight depth blur; minimal background elements so focus stays on the pet. 
     Mood: Warm, welcoming, and playful but polished; friendly and approachable expression with a soft gentle smile; clean startup-style digital polish.`
   },
   { id: 'realistic-studio', name: 'Studio Realism', description: 'Hyper-detailed cinematic lighting', prompt: 'A cinematic, ultra-high-quality professional studio avatar portrait. Detailed fur, vibrant lighting, 4K resolution, macro photography style.' },
@@ -121,7 +121,7 @@ const PetProfilePage: React.FC = () => {
         if (parsed.length > 0 && !selectedPet) setSelectedPet(parsed[0]);
       } catch (e) { /* silent fail */ }
     }
-  }, [user?.uid]);
+  }, [user?.uid, selectedPet]);
 
   const savePetsToStorage = async (updatedPets: PetProfile[]) => {
     if (!user?.uid) return;
@@ -167,24 +167,22 @@ const PetProfilePage: React.FC = () => {
     const targetMatch = selectedPet.name.trim().toLowerCase();
     
     if (inputMatch !== targetMatch) {
-      addNotification('Validation Error', 'The typed name does not match the pet profile name.', 'warning');
+      addNotification('Validation Error', 'The typed name does not match the pet name.', 'warning');
       return;
     }
 
     setIsDeleting(true);
     try {
-      const petIdToRemove = selectedPet.id;
-      const petNameToNotify = selectedPet.name;
-
-      await deletePet(petIdToRemove);
+      await deletePet(selectedPet.id);
       
-      const updatedPets = pets.filter(p => p.id !== petIdToRemove);
-      localStorage.setItem(`ssp_pets_${user.uid}`, JSON.stringify(updatedPets));
+      const updatedPets = pets.filter(p => p.id !== selectedPet.id);
       setPets(updatedPets);
+      localStorage.setItem(`ssp_pets_${user.uid}`, JSON.stringify(updatedPets));
+      
+      addNotification('Profile Removed', `${selectedPet.name}'s registry has been purged.`, 'info');
       
       setShowDeleteModal(false);
       setDeleteConfirmation('');
-      setIsAdding(false); 
       
       if (updatedPets.length > 0) {
         setSelectedPet(updatedPets[0]);
@@ -192,11 +190,11 @@ const PetProfilePage: React.FC = () => {
         setSelectedPet(null);
       }
       
+      // Force redirection logic to clear any stale states
       navigate(AppRoutes.PET_PROFILE);
-      addNotification('Registry Purged', `${petNameToNotify}'s profile has been removed.`, 'info');
     } catch (err) {
       console.error("Deletion failed:", err);
-      addNotification('Error', 'Failed to delete profile.', 'error');
+      addNotification('System Error', 'Failed to remove pet from registry.', 'error');
     } finally {
       setIsDeleting(false);
     }
