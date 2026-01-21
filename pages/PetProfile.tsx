@@ -324,6 +324,37 @@ const PetProfilePage: React.FC = () => {
     } catch (err) { addNotification('AI Studio Error', 'Generation failed.', 'error'); } finally { setIsGeneratingAvatar(false); }
   };
 
+  const handleDeletePet = async () => {
+    if (!selectedPet || !user) return;
+    setIsDeleting(true);
+    
+    // Create a timeout promise to prevent infinite loading state
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Request timed out")), 8000)
+    );
+
+    try {
+      // Race the delete operation against the timeout
+      await Promise.race([deletePet(selectedPet.id), timeoutPromise]);
+      
+      const updated = pets.filter(p => p.id !== selectedPet.id);
+      localStorage.setItem(`ssp_pets_${user.uid}`, JSON.stringify(updated));
+      setPets(updated);
+      setSelectedPet(updated.length > 0 ? updated[0] : null);
+      
+      addNotification('Deleted', 'Profile removed from registry.', 'info');
+      setShowDeleteModal(false);
+      setIsAdding(false);
+    } catch (e: any) {
+      console.error("Delete operation failed:", e);
+      addNotification('Error', 'Could not purge registry. Check your connection.', 'error');
+      // Ensure modal closes even on error to prevent stuck state, or keep it open for retry
+      setShowDeleteModal(false); 
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const publicProfileUrl = useMemo(() => selectedPet ? `${window.location.origin}/#/pet/${selectedPet.id}` : '', [selectedPet?.id]);
 
   return (
@@ -484,11 +515,7 @@ const PetProfilePage: React.FC = () => {
         </>
       )}
 
-      {showStyleModal && (<div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md animate-in fade-in"><div className="bg-white rounded-[3.5rem] w-full max-w-5xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]"><div className="p-12 border-b border-slate-50 flex items-center justify-between shrink-0"><div className="flex items-center gap-6"><div className="p-4 bg-theme-light text-theme rounded-[2rem] shadow-sm"><Zap size={32} className="animate-pulse" /></div><div><h3 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">Portrait Studio <span className="text-[10px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full border border-indigo-100">AI Artist Suite</span></h3><p className="text-slate-500 font-medium text-sm">Choose an artistic direction for {selectedPet?.name}.</p></div></div><button onClick={() => setShowStyleModal(false)} className="p-4 text-slate-400 hover:bg-slate-50 rounded-2xl transition-all"><X size={28} /></button></div>
-            <div className="p-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 overflow-y-auto flex-1 bg-slate-50/20">{AVATAR_STYLES.map(style => (<button key={style.id} onClick={() => generateAIAvatar(style.id)} className={`group relative flex flex-col p-8 rounded-[2.5rem] border transition-all text-left overflow-hidden h-full ${style.isPremium ? 'bg-slate-900 border-slate-800 text-white ring-8 ring-indigo-500/5' : 'bg-white border-slate-100 hover:border-theme hover:shadow-2xl hover:-translate-y-1'}`}><div className="flex items-center justify-between mb-6 relative z-10"><div className={`p-3 rounded-2xl ${style.isPremium ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-50 text-slate-400 group-hover:bg-theme-light group-hover:text-theme'}`}>{style.isPremium ? <Sparkles size={20} /> : <Palette size={20} />}</div>{style.isPremium && <div className="flex items-center gap-2 px-3 py-1 bg-indigo-500/10 rounded-full"><Star size={12} className="text-indigo-400 fill-indigo-400" /><span className="text-[8px] font-black uppercase tracking-[0.2em] text-indigo-400">Elite</span></div>}</div><div className="relative z-10"><h4 className={`font-black text-2xl mb-2 transition-colors ${style.isPremium ? 'text-white' : 'text-slate-900 group-hover:text-theme'}`}>{style.name}</h4><p className={`text-sm font-medium leading-relaxed mb-6 ${style.isPremium ? 'text-slate-400' : 'text-slate-500'}`}>{style.description}</p></div><div className="mt-auto relative z-10 flex items-center gap-3"><div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${style.isPremium ? 'bg-white/10 text-white group-hover:bg-white/20' : 'bg-slate-900 text-white group-hover:bg-theme'}`}>Render Style <ArrowRight size={12} /></div></div><div className={`absolute -bottom-10 -right-10 w-40 h-40 rounded-full transition-all duration-1000 blur-3xl group-hover:scale-150 ${style.isPremium ? 'bg-indigo-500/20' : 'bg-theme/5 opacity-0 group-hover:opacity-100'}`}></div></button>))}</div>
-            <div className="p-8 bg-white border-t border-slate-50 flex items-center justify-between shrink-0"><div className="flex items-center gap-3"><Sparkle size={20} className="text-theme animate-spin duration-[4000ms]" /><span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-300">Synchronized with AI Engine</span></div></div></div></div>)}
-
-      {showDeleteModal && selectedPet && (<div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md animate-in fade-in"><div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden"><div className="p-8 bg-rose-50 border-b border-rose-100 flex items-center gap-4"><div className="p-3 bg-white rounded-2xl text-rose-500 shadow-sm"><AlertTriangle size={24} /></div><div><h3 className="text-xl font-black text-rose-900 tracking-tight">Purge Registry?</h3><p className="text-rose-700/80 font-medium text-xs">This cycle is irreversible.</p></div></div><div className="p-8 space-y-8"><div className="bg-slate-50 p-6 rounded-[1.5rem] border border-slate-100"><p className="text-slate-600 font-medium text-sm leading-relaxed text-center">Delete <strong className="text-slate-900 font-black">{selectedPet.name}</strong> from the network?</p></div><div className="flex gap-4"><button onClick={() => setShowDeleteModal(false)} disabled={isDeleting} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95">Abort</button><button onClick={async () => { setIsDeleting(true); try { await deletePet(selectedPet.id); const updated = pets.filter(p => p.id !== selectedPet.id); localStorage.setItem(`ssp_pets_${user?.uid}`, JSON.stringify(updated)); setPets(updated); setSelectedPet(updated.length > 0 ? updated[0] : null); addNotification('Deleted', 'Profile removed.', 'info'); setShowDeleteModal(false); setIsAdding(false); } catch (e) { } finally { setIsDeleting(false); } }} disabled={isDeleting} className="flex-1 py-4 bg-rose-500 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-rose-600 transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50">{isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}Purge</button></div></div></div></div>)}
+      {showDeleteModal && selectedPet && (<div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md animate-in fade-in"><div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden"><div className="p-8 bg-rose-50 border-b border-rose-100 flex items-center gap-4"><div className="p-3 bg-white rounded-2xl text-rose-500 shadow-sm"><AlertTriangle size={24} /></div><div><h3 className="text-xl font-black text-rose-900 tracking-tight">Purge Registry?</h3><p className="text-rose-700/80 font-medium text-xs">This cycle is irreversible.</p></div></div><div className="p-8 space-y-8"><div className="bg-slate-50 p-6 rounded-[1.5rem] border border-slate-100"><p className="text-slate-600 font-medium text-sm leading-relaxed text-center">Delete <strong className="text-slate-900 font-black">{selectedPet.name}</strong> from the network?</p></div><div className="flex gap-4"><button onClick={() => setShowDeleteModal(false)} disabled={isDeleting} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95">Abort</button><button onClick={handleDeletePet} disabled={isDeleting} className="flex-1 py-4 bg-rose-500 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-rose-600 transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50">{isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}Purge</button></div></div></div></div>)}
     </div>
   );
 };

@@ -20,7 +20,10 @@ import {
   Zap,
   Loader2,
   LayoutDashboard,
-  ArrowRight
+  ArrowRight,
+  Scale,
+  Dumbbell,
+  Stethoscope
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -43,7 +46,7 @@ const StatCard: React.FC<{
       <Icon className="w-6 h-6 text-white" />
     </div>
     <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">{label}</p>
-    <h3 className="text-3xl font-black text-slate-900 tracking-tight">{value}</h3>
+    <h3 className="text-3xl font-black text-slate-900 tracking-tight truncate">{value}</h3>
     
     <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
       <div className="p-2 bg-slate-50 rounded-xl text-slate-300">
@@ -65,6 +68,7 @@ const Home: React.FC = () => {
   const [petStatus, setPetStatus] = useState(() => localStorage.getItem(`ssp_status_${user?.uid}`) || 'Active');
   
   const [editingStat, setEditingStat] = useState<'appointments' | 'exercise' | 'weight' | 'status' | null>(null);
+  const [showLogOptions, setShowLogOptions] = useState(false);
   const [editValue, setEditValue] = useState('');
 
   useEffect(() => {
@@ -163,6 +167,35 @@ const Home: React.FC = () => {
 
   const recentWeight = activePet?.weightHistory?.[activePet.weightHistory.length - 1]?.weight;
 
+  // Input validation handler
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value;
+    
+    // Strict numeric validation for weight and exercise
+    if (editingStat === 'weight') {
+      // Allow only numbers and one dot
+      val = val.replace(/[^0-9.]/g, '');
+      const parts = val.split('.');
+      if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('');
+      if (val.length > 6) return; // Limit total chars
+    } else if (editingStat === 'exercise') {
+      // Allow only integers
+      val = val.replace(/[^0-9]/g, '');
+      if (val.length > 3) return; // Max 999 minutes
+    }
+
+    setEditValue(val);
+  };
+
+  const openEditor = (type: 'appointments' | 'exercise' | 'weight' | 'status') => {
+    setEditingStat(type);
+    if (type === 'weight') setEditValue(recentWeight ? String(recentWeight) : '');
+    else if (type === 'appointments') setEditValue(appointments === 'None' ? '' : appointments);
+    else if (type === 'exercise') setEditValue(exercise);
+    else if (type === 'status') setEditValue(petStatus);
+    setShowLogOptions(false);
+  };
+
   if (isLoading && pets.length === 0) {
     return (
       <div className="flex h-[calc(100vh-200px)] items-center justify-center">
@@ -241,28 +274,28 @@ const Home: React.FC = () => {
               label="Recent Weight" 
               value={recentWeight ? `${recentWeight} kg` : '--'} 
               color="bg-rose-500" 
-              onEdit={() => { setEditingStat('weight'); setEditValue(recentWeight ? String(recentWeight) : ''); }}
+              onEdit={() => openEditor('weight')}
             />
             <StatCard 
               icon={Calendar} 
               label="Appointments" 
               value={appointments} 
               color="bg-indigo-600" 
-              onEdit={() => { setEditingStat('appointments'); setEditValue(appointments === 'None' ? '' : appointments); }} 
+              onEdit={() => openEditor('appointments')} 
             />
             <StatCard 
               icon={Activity} 
               label="Exercise Today" 
               value={`${exercise} min`} 
               color="bg-emerald-500" 
-              onEdit={() => { setEditingStat('exercise'); setEditValue(exercise); }} 
+              onEdit={() => openEditor('exercise')} 
             />
             <StatCard 
               icon={ShieldCheck} 
               label="Pet Status" 
               value={petStatus} 
               color="bg-amber-500" 
-              onEdit={() => { setEditingStat('status'); setEditValue(petStatus); }}
+              onEdit={() => openEditor('status')}
             />
           </div>
 
@@ -276,12 +309,15 @@ const Home: React.FC = () => {
                 <Link to={AppRoutes.PET_PROFILE} className="text-[10px] font-black text-theme uppercase tracking-widest hover:underline">Full Registry</Link>
               </div>
               
-              <div className="h-80 bg-slate-50/50 rounded-[2.5rem] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center group cursor-pointer hover:bg-white hover:border-theme/20 transition-all duration-500">
+              <button 
+                onClick={() => setShowLogOptions(true)}
+                className="w-full h-80 bg-slate-50/50 rounded-[2.5rem] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center group cursor-pointer hover:bg-white hover:border-theme/20 transition-all duration-500"
+              >
                 <div className="w-20 h-20 bg-white rounded-3xl shadow-lg flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                     <Plus size={32} className="text-slate-200 group-hover:text-theme" />
                 </div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Log Daily Observations</p>
-              </div>
+              </button>
             </div>
 
             {/* Routine Section */}
@@ -375,6 +411,40 @@ const Home: React.FC = () => {
         </div>
       )}
 
+      {/* Log Options Modal */}
+      {showLogOptions && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in">
+          <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full shadow-2xl border border-slate-100 space-y-6 animate-in zoom-in-95 duration-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight">Log Entry</h3>
+                <p className="text-slate-400 font-medium text-xs">Select data point to update</p>
+              </div>
+              <button onClick={() => setShowLogOptions(false)} className="p-3 bg-slate-50 text-slate-400 hover:text-slate-600 rounded-2xl transition-all"><X size={20} /></button>
+            </div>
+            
+            <div className="space-y-3">
+              <button onClick={() => openEditor('weight')} className="w-full flex items-center gap-4 p-4 bg-slate-50 hover:bg-theme hover:text-white rounded-[1.5rem] transition-all group">
+                <div className="p-3 bg-white text-slate-400 rounded-xl group-hover:text-theme"><Scale size={20} /></div>
+                <span className="font-black text-sm uppercase tracking-widest">Log Weight</span>
+              </button>
+              <button onClick={() => openEditor('exercise')} className="w-full flex items-center gap-4 p-4 bg-slate-50 hover:bg-theme hover:text-white rounded-[1.5rem] transition-all group">
+                <div className="p-3 bg-white text-slate-400 rounded-xl group-hover:text-theme"><Dumbbell size={20} /></div>
+                <span className="font-black text-sm uppercase tracking-widest">Log Exercise</span>
+              </button>
+              <button onClick={() => openEditor('appointments')} className="w-full flex items-center gap-4 p-4 bg-slate-50 hover:bg-theme hover:text-white rounded-[1.5rem] transition-all group">
+                <div className="p-3 bg-white text-slate-400 rounded-xl group-hover:text-theme"><Calendar size={20} /></div>
+                <span className="font-black text-sm uppercase tracking-widest">Add Appointment</span>
+              </button>
+              <button onClick={() => openEditor('status')} className="w-full flex items-center gap-4 p-4 bg-slate-50 hover:bg-theme hover:text-white rounded-[1.5rem] transition-all group">
+                <div className="p-3 bg-white text-slate-400 rounded-xl group-hover:text-theme"><Stethoscope size={20} /></div>
+                <span className="font-black text-sm uppercase tracking-widest">Update Health Status</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Editing Modal */}
       {editingStat && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in">
@@ -408,9 +478,10 @@ const Home: React.FC = () => {
                  ) : (
                    <input 
                       autoFocus
-                      type={editingStat === 'weight' || editingStat === 'exercise' ? 'number' : 'text'}
+                      type={editingStat === 'weight' || editingStat === 'exercise' ? 'text' : 'text'}
+                      inputMode={editingStat === 'weight' ? 'decimal' : editingStat === 'exercise' ? 'numeric' : 'text'}
                       value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
+                      onChange={handleInputChange}
                       placeholder={editingStat === 'weight' ? 'e.g. 12.5' : editingStat === 'exercise' ? 'e.g. 45' : 'e.g. Grooming 2pm'}
                       className="w-full p-6 bg-slate-50 rounded-[1.5rem] border border-slate-100 outline-none focus:ring-4 focus:ring-theme/10 focus:bg-white transition-all font-bold text-lg"
                    />
