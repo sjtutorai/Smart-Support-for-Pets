@@ -248,7 +248,14 @@ const PetProfilePage: React.FC = () => {
     e.preventDefault(); if (!user) return;
     const isNameValid = validatePetField('name', newPet.name || '');
     const isBirthValid = validatePetField('birthday', newPet.birthday || '');
-    if (!isNameValid || !isBirthValid) { addNotification('Form Error', 'Please check highlighted fields.', 'warning'); return; }
+    const isTempValid = validatePetField('temperament', newPet.temperament || '');
+    const isBioValid = validatePetField('bio', newPet.bio || '');
+
+    if (!isNameValid || !isBirthValid || !isTempValid || !isBioValid) { 
+        addNotification('Form Error', 'Please check highlighted fields.', 'warning'); 
+        return; 
+    }
+
     const { years, months } = calculateAge(newPet.birthday!, newPet.species!);
     const id = `SSP-${Date.now()}`;
     const completePet: PetProfile = { 
@@ -360,7 +367,7 @@ const PetProfilePage: React.FC = () => {
             {pets.map(p => (
               <button key={p.id} onClick={() => { setSelectedPet(p); setIsAdding(false); }} className={`flex items-center gap-3 px-5 py-3 rounded-2xl border-2 transition-all shrink-0 ${selectedPet?.id === p.id && !isAdding ? 'bg-theme-light border-theme shadow-sm scale-105' : 'bg-white border-transparent hover:bg-slate-50'}`}>
                 <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">{p.avatarUrl ? <img src={p.avatarUrl} className="w-full h-full object-cover" /> : <PawPrint size={14} className="text-slate-300" />}</div>
-                <span className={`font-black text-[10px] uppercase tracking-widest ${selectedPet?.id === p.id && !isAdding ? 'text-theme' : 'text-slate-50'}`}>{p.name}</span>
+                <span className={`font-black text-[10px] uppercase tracking-widest ${selectedPet?.id === p.id && !isAdding ? 'text-theme' : 'text-slate-500'}`}>{p.name}</span>
               </button>
             ))}
           </div>
@@ -378,7 +385,7 @@ const PetProfilePage: React.FC = () => {
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Companion Name</label>
                     <input required value={newPet.name} onChange={e => { setNewPet({ ...newPet, name: e.target.value }); validatePetField('name', e.target.value); }} className={`w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold transition-all ${formErrors.name ? 'ring-2 ring-rose-500/20' : ''}`} placeholder="e.g. Luna" />
-                    {formErrors.name && <p className="text-[10px] text-rose-500 font-bold ml-1">{formErrors.name}</p>}
+                    {formErrors.name && <p className="text-[10px] text-rose-500 font-bold ml-1 animate-in fade-in">{formErrors.name}</p>}
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Species Detail</label>
@@ -389,17 +396,17 @@ const PetProfilePage: React.FC = () => {
                   <div className="space-y-1">
                     <div className="flex justify-between items-center ml-1"><label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Birthday</label><span className="text-[9px] font-black uppercase text-theme tracking-widest bg-theme-light px-2 py-0.5 rounded-full">Max: {speciesAgeLimit}y</span></div>
                     <input type="date" required min={minDate} max={todayStr} value={newPet.birthday} onChange={e => { setNewPet({ ...newPet, birthday: e.target.value }); validatePetField('birthday', e.target.value); }} className={`w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold transition-all ${formErrors.birthday ? 'ring-2 ring-rose-500/20' : ''}`} />
-                    {formErrors.birthday && <p className="text-[10px] text-rose-500 font-bold ml-1">{formErrors.birthday}</p>}
+                    {formErrors.birthday && <p className="text-[10px] text-rose-500 font-bold ml-1 animate-in fade-in">{formErrors.birthday}</p>}
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Temperament & Habits</label>
-                    <textarea value={newPet.temperament} rows={2} onChange={e => { setNewPet({ ...newPet, temperament: e.target.value }); validatePetField('temperament', e.target.value); }} className={`w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold transition-all resize-none ${formErrors.temperament ? 'ring-2 ring-rose-500/20' : ''}`} placeholder="Calm, energetic, likes ball toys..." />
-                    {formErrors.temperament && <p className="text-[10px] text-rose-500 font-bold ml-1">{formErrors.temperament}</p>}
+                    <textarea required value={newPet.temperament} rows={2} onChange={e => { setNewPet({ ...newPet, temperament: e.target.value }); validatePetField('temperament', e.target.value); }} className={`w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold transition-all resize-none ${formErrors.temperament ? 'ring-2 ring-rose-500/20' : ''}`} placeholder="Calm, energetic, likes ball toys..." />
+                    {formErrors.temperament && <p className="text-[10px] text-rose-500 font-bold ml-1 animate-in fade-in">{formErrors.temperament}</p>}
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Pet Biography</label>
-                    <textarea value={newPet.bio} rows={3} onChange={e => { setNewPet({ ...newPet, bio: e.target.value }); validatePetField('bio', e.target.value); }} className={`w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold transition-all resize-none ${formErrors.bio ? 'ring-2 ring-rose-500/20' : ''}`} placeholder="Share their story and personality details..." />
-                    {formErrors.bio && <p className="text-[10px] text-rose-500 font-bold ml-1">{formErrors.bio}</p>}
+                    <textarea required value={newPet.bio} rows={3} onChange={e => { setNewPet({ ...newPet, bio: e.target.value }); validatePetField('bio', e.target.value); }} className={`w-full p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-theme/5 font-bold transition-all resize-none ${formErrors.bio ? 'ring-2 ring-rose-500/20' : ''}`} placeholder="Share their story and personality details..." />
+                    {formErrors.bio && <p className="text-[10px] text-rose-500 font-bold ml-1 animate-in fade-in">{formErrors.bio}</p>}
                   </div>
                   <button type="submit" className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-black transition-all">Initialize Profile</button>
                 </form>
@@ -417,13 +424,13 @@ const PetProfilePage: React.FC = () => {
                     <button onClick={() => fileInputRef.current?.click()} className="p-3.5 bg-white border border-slate-100 rounded-xl hover:bg-slate-50 shadow-sm text-slate-500 transition-all hover:text-theme" title="Ref. Photo"><Camera size={20} /><input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onloadend = () => generateAIAvatar(selectedPet.avatarStylePreference || AVATAR_STYLES[0].id, r.result as string); r.readAsDataURL(f); } }} /></button>
                     <button onClick={() => setShowStyleModal(true)} disabled={isGeneratingAvatar} className="p-3.5 rounded-xl shadow-lg transition-all bg-slate-900 text-theme hover:bg-black flex items-center gap-2"><Wand2 size={20} /><span className="text-[10px] font-black uppercase tracking-widest pr-1">Portrait Studio</span></button>
                   </div>
-                  <div className="space-y-1 pb-4 relative z-20"><h3 className="text-4xl font-black text-slate-900 tracking-tighter">{selectedPet.name}</h3><p className="text-[10px] font-black text-theme uppercase tracking-[0.2em]">{selectedPet.breed} · {selectedPet.species}</p><button onClick={() => setShowDeleteModal(true)} className="mt-6 flex items-center gap-2 mx-auto text-rose-400 hover:text-rose-600 font-bold text-[10px] uppercase tracking-widest transition-colors"><Trash2 size={14} /> Purge Registry</button></div>
+                  <div className="space-y-1 pb-4 relative z-20"><h3 className="text-4xl font-black text-slate-900 tracking-tighter">{selectedPet.name}</h3><p className="text-[10px] font-black text-theme uppercase tracking-[0.2em]">{selectedPet.breed} · {selectedPet.species}</p><button onClick={() => setShowDeleteModal(true)} className="mt-6 flex items-center gap-2 mx-auto text-rose-400 hover:text-rose-600 font-bold text-[10px] uppercase tracking-widest transition-colors cursor-pointer"><Trash2 size={14} /> Purge Registry</button></div>
                 </div>
 
                 <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white space-y-6 shadow-2xl relative overflow-hidden">
                    <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl"></div>
                    <div className="flex items-center gap-3 relative z-10"><QrCode size={20} className="text-indigo-400" /><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">Digital Identity</h4></div>
-                   <div className="bg-white p-6 rounded-[2rem] mx-auto w-44 h-44 flex items-center justify-center shadow-inner group relative overflow-hidden"><img id="pet-qr-img" src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(publicProfileUrl)}`} alt="QR ID" className="w-full h-full object-contain mix-blend-multiply" crossOrigin="anonymous" /><div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex flex-col items-center justify-center"><div className="w-full h-1 bg-indigo-500/30 animate-scan-beam absolute top-0 left-0" /></div></div>
+                   <div className="bg-white p-6 rounded-[2rem] mx-auto w-44 h-44 flex items-center justify-center shadow-inner group relative overflow-hidden"><img id="pet-qr-img" src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(publicProfileUrl)}`} alt="QR ID" className="w-full h-full object-contain mix-blend-multiply" crossOrigin="anonymous" /><div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex flex-col items-center justify-center"><div className="w-full h-1 bg-indigo-500/30 animate-scan-beam absolute top-0 left-0" /></div></div>
                    <div className="space-y-4 pt-2 relative z-10"><div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-400"><span>Registry ID</span><span className="text-white">{selectedPet.id.split('-')[1]}</span></div><div className="h-px bg-white/10" />
                    <button onClick={downloadQrCode} className="w-full flex items-center justify-center gap-3 py-4 bg-theme text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-theme-hover transition-all shadow-lg active:scale-95"><Download size={18} /> Share Digital ID</button>
                    <button onClick={() => navigate(`/pet/${selectedPet.id}`)} className="w-full flex items-center justify-center gap-2 py-3 bg-white/5 text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-white/10 transition-all">Public Profile <ArrowRight size={12} /></button></div>

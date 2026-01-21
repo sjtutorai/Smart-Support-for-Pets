@@ -28,7 +28,10 @@ import {
   serverTimestamp, 
   onSnapshot,
   deleteDoc,
-  writeBatch
+  writeBatch,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager
 } from "firebase/firestore";
 import { User, PetProfile, FollowStatus } from '../types';
 
@@ -44,7 +47,14 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// Initialize Firestore with settings to resolve "Could not reach backend" error
+// experimentalForceLongPolling is key for environments where WebSockets are unstable
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  experimentalForceLongPolling: true,
+  useFetchStreams: false
+});
 
 export const isUsernameTaken = async (username: string, excludeUid: string) => {
   if (!username) return false;
