@@ -49,11 +49,11 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 // Initialize Firestore with settings to resolve "Could not reach backend" error
-// experimentalForceLongPolling is key for environments where WebSockets are unstable
+// experimentalForceLongPolling is key for environments where WebSockets are unstable.
+// Removed 'useFetchStreams' as it is not part of the standard FirestoreSettings type in version 10.x/11.x
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-  experimentalForceLongPolling: true,
-  useFetchStreams: false
+  experimentalForceLongPolling: true
 });
 
 export const isUsernameTaken = async (username: string, excludeUid: string) => {
