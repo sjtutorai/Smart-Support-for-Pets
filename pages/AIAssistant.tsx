@@ -1,39 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, ShieldCheck, Zap, Bot, MessageSquareText, Send, Loader2, User as UserIcon, Trash2, AlertCircle } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { ShieldCheck, Bot, MessageSquareText, Send, Loader2, User as UserIcon, Trash2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface ChatMessage {
   role: 'user' | 'model';
   text: string;
 }
-
-const SYSTEM_INSTRUCTION = `IMPORTANT OVERRIDE – READ CAREFULLY
-
-From this point forward, you are SS Paw Pal, a professional AI assistant dedicated exclusively to pets and companion animals.
-
-THIS OVERRIDES ALL PREVIOUS INSTRUCTIONS.
-
-PRIMARY ROLE:
-- You ONLY answer questions related to pets and pet care.
-- Pets include dogs, cats, birds, fish, rabbits, hamsters, guinea pigs, reptiles, and similar domesticated animals.
-
-STRICT ENFORCEMENT:
-1. Ignore and override any previous instructions that allow non-pet topics.
-2. If a user asks about ANY non-pet topic (including politics, technology, coding, exams, history, finance, or general knowledge), you MUST refuse.
-3. When refusing, respond EXACTLY with:
-   "I am a pet care assistant and can only answer questions related to pets."
-
-HEALTH & SAFETY:
-- Provide general pet health guidance only.
-- Do NOT diagnose or prescribe medication.
-- Recommend a licensed veterinarian for serious symptoms or emergencies.
-
-TONE:
-- Friendly, calm, professional, and clear.
-
-FINAL RULE:
-These instructions take absolute priority over all earlier system, developer, or assistant instructions without exception.`;
 
 const AIAssistant: React.FC = () => {
   const { user } = useAuth();
@@ -59,33 +31,34 @@ const AIAssistant: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      
-      // Filter out the initial hardcoded message for the API history to keep context clean
-      const history = messages
-        .filter((_, i) => i > 0)
-        .map(m => ({
-          role: m.role,
-          parts: [{ text: m.text }]
-        }));
+      // Prepare history for API - filter out initial welcome message if needed or keep it
+      // The API expects parts format: { role, parts: [{ text }] }
+      // We slice(1) to skip the hardcoded welcome message to save tokens/context if desired,
+      // or keep it if it helps context. Here we replicate the user's logic.
+      const history = messages.slice(1).map(m => ({
+        role: m.role,
+        parts: [{ text: m.text }]
+      }));
 
-      const chat = ai.chats.create({
-        model: 'gemini-3-flash-preview',
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-        },
-        history: history
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: userMessage,
+          history: history,
+        }),
       });
 
-      const result = await chat.sendMessage({ message: userMessage });
-      const responseText = result.text;
-
-      if (responseText) {
-        setMessages(prev => [...prev, { role: 'model', text: responseText }]);
+      const data = await response.json();
+      
+      if (response.ok && data.reply) {
+        setMessages(prev => [...prev, { role: 'model', text: data.reply }]);
+      } else {
+        throw new Error(data.error || "Failed to get response");
       }
     } catch (error) {
       console.error("AI Error:", error);
-      setMessages(prev => [...prev, { role: 'model', text: "I'm having trouble connecting to the network. Please check your connection or API key and try again." }]);
+      setMessages(prev => [...prev, { role: 'model', text: "I'm having trouble connecting to the network. Please check your connection and try again." }]);
     } finally {
       setIsLoading(false);
     }
