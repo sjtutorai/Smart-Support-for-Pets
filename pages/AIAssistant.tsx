@@ -1,1220 +1,182 @@
-import React, { useEffect, useRef, useState } from "react";
-import {
-  Send,
-  User as UserIcon,
-  Loader2,
-  Mic,
-  MicOff,
-  Sparkles,
-  AlertCircle,
-  ExternalLink,
-} from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import { Chat, GenerateContentResponse } from "@google/genai";
+import React, { useState, useRef, useEffect } from 'react';
+import { ShieldCheck, Bot, MessageSquareText, Send, Loader2, User as UserIcon, Trash2, AlertCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
-import { ChatMessage } from "../types";
-import { GeminiService } from "../services/geminiService";
-import { PAWPAL_AVATAR } from "../App"; // ✅ rename avatar too
-
-/* ------------------------------------------------------------------ */
-/* SAMPLE QUESTIONS – SS PAW PAL                                       */
-/* ------------------------------------------------------------------ */
-const SAMPLE_QUESTIONS = [
-  "My dog is not eating food. What should I do?",
-  "How often should I bathe my puppy?",
-  "What should I feed a 2-month-old kitten?",
-  "How can I report an abusive post?",
-  "Can I connect with nearby pet owners?",
-];
-
-/* ------------------------------------------------------------------ */
-/* PROPS                                                               */
-/* ------------------------------------------------------------------ */
-interface PawPalChatProps {
-  onDeductCredit: (amount: number) => boolean;
-  currentCredits: number;
+interface ChatMessage {
+  role: 'user' | 'model';
+  text: string;
 }
 
-/* ------------------------------------------------------------------ */
-/* COMPONENT                                                           */
-/* ------------------------------------------------------------------ */
-const PawPalChat: React.FC<PawPalChatProps> = ({
-  onDeductCredit,
-  currentCredits,
-}) => {
-  /* ---------------------------- STATE ----------------------------- */
+const AIAssistant: React.FC = () => {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: "model",
-      text: "Hi! I’m PawPal AI 🐾, your assistant from SS Paw Pal. How can I help you and your pet today?",
-      timestamp: Date.now(),
-    },
+    { role: 'model', text: "Hello! I'm SS Paw Pal, your dedicated pet care specialist. How can I help you and your companion today?" }
   ]);
-
-  const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isApiDisabled, setIsApiDisabled] = useState(false);
-
-  /* ---------------------------- REFS ------------------------------ */
-  const chatSessionRef = useRef<Chat | null>(null);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const LOGO_URL = "https://res.cloudinary.com/dazlddxht/image/upload/v1768234409/SS_Paw_Pal_Logo_aceyn8.png";
 
-  /* ------------------------- INIT CHAT ---------------------------- */
   useEffect(() => {
-    if (!chatSessionRef.current) {
-      chatSessionRef.current = GeminiService.createPawPalChat(); // ✅ renamed
-    }
-  }, []);
-
-  /* ---------------------- AUTO SCROLL ----------------------------- */
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  /* ------------------------------------------------------------------ */
-  /* VOICE INPUT                                                        */
-  /* ------------------------------------------------------------------ */
-  const toggleVoiceInput = () => {
-    if (isListening) return;
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
 
-    const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      alert("Voice input is not supported in this browser.");
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.continuous = false;
-
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onresult = (e: any) => {
-      const transcript = e.results[0][0].transcript;
-      setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
-    };
-
-    recognition.start();
-  };
-
-  /* ------------------------------------------------------------------ */
-  /* SEND MESSAGE TO AI                                                 */
-  /* ------------------------------------------------------------------ */
-  const sendMessageToAi = async (text: string) => {
-    if (!text.trim() || !chatSessionRef.current) return;
-
-    setError(null);
-    setIsApiDisabled(false);
-
-    /* ---- Credit logic ---- */
-    if (!onDeductCredit(1)) {
-      setError("Insufficient credits. 1 credit is required per message.");
-      return;
-    }
-
-    const userMessage: ChatMessage = {
-      role: "user",
-      text,
-      timestamp: Date.now(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setIsTyping(true);
+    const userMessage = input.trim();
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
+    setIsLoading(true);
 
     try {
-      const stream = await chatSessionRef.current.sendMessageStream({
-        message: text,
+      // Prepare history for API - filter out initial welcome message if needed or keep it
+      // The API expects parts format: { role, parts: [{ text }] }
+      // We slice(1) to skip the hardcoded welcome message to save tokens/context if desired,
+      // or keep it if it helps context. Here we replicate the user's logic.
+      const history = messages.slice(1).map(m => ({
+        role: m.role,
+        parts: [{ text: m.text }]
+      }));
+
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: userMessage,
+          history: history,
+        }),
       });
 
-      let fullText = "";
-      setMessages((prev) => [
-        ...prev,
-        { role: "model", text: "", timestamp: Date.now() },
-      ]);
-
-      for await (const chunk of stream) {
-        const res = chunk as GenerateContentResponse;
-        if (res.text) {
-          fullText += res.text;
-          setMessages((prev) => {
-            const copy = [...prev];
-            copy[copy.length - 1].text = fullText;
-            return copy;
-          });
-        }
+      const data = await response.json();
+      
+      if (response.ok && data.reply) {
+        setMessages(prev => [...prev, { role: 'model', text: data.reply }]);
+      } else {
+        throw new Error(data.error || "Failed to get response");
       }
-    } catch (err: any) {
-      console.error("PawPal AI Error:", err);
-
-      let msg = "Something went wrong. Please try again.";
-      if (err?.message?.includes("PERMISSION_DENIED")) {
-        setIsApiDisabled(true);
-        msg = "API_DISABLED_BLOCK";
-      }
-
-      setMessages((prev) => [
-        ...prev,
-        { role: "model", text: msg, timestamp: Date.now() },
-      ]);
+    } catch (error) {
+      console.error("AI Error:", error);
+      setMessages(prev => [...prev, { role: 'model', text: "I'm having trouble connecting to the network. Please check your connection and try again." }]);
     } finally {
-      setIsTyping(false);
+      setIsLoading(false);
     }
   };
 
-  /* ----------------------- HANDLERS ------------------------------- */
-  const handleSend = () => {
-    if (!input.trim() || isTyping) return;
-    sendMessageToAi(input);
-    setInput("");
+  const clearChat = () => {
+    setMessages([{ role: 'model', text: "Chat cleared. How can I help with your pet?" }]);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  /* ------------------------------------------------------------------ */
-  /* UI                                                                 */
-  /* ------------------------------------------------------------------ */
   return (
-    <div className="h-[calc(100vh-140px)] flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
-      {/* HEADER */}
-      <div className="px-4 py-2 bg-slate-50 border-b flex justify-between items-center">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-          SS Paw Pal · PawPal AI
-        </span>
-        <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full border text-[10px] font-bold">
-          <Sparkles className="w-3 h-3" />
-          1 Credit / Msg
-        </div>
-      </div>
-
-      {/* CHAT */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-5">
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`flex gap-3 ${
-              msg.role === "user" ? "justify-end" : "justify-start"
-            }`}
-          >
-            {msg.role === "model" && (
-              <img
-                src={PAWPAL_AVATAR}
-                alt="PawPal AI"
-                className="w-8 h-8 rounded-full border"
-              />
-            )}
-
-            <div
-              className={`max-w-[85%] rounded-xl px-4 py-2.5 text-sm ${
-                msg.role === "user"
-                  ? "bg-primary-600 text-white rounded-br-none"
-                  : "bg-slate-50 border text-slate-800 rounded-bl-none"
-              }`}
-            >
-              {msg.text === "API_DISABLED_BLOCK" ? (
-                <div className="space-y-2">
-                  <p className="font-bold text-red-700">
-                    Generative Language API not enabled
-                  </p>
-                  <a
-                    href="https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/overview"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 text-xs bg-red-600 text-white px-3 py-2 rounded-md"
-                  >
-                    Enable API
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              ) : msg.role === "model" ? (
-                <ReactMarkdown>{msg.text}</ReactMarkdown>
-              ) : (
-                <p>{msg.text}</p>
-              )}
+    <div className="max-w-6xl mx-auto pb-10 space-y-8 animate-fade-in h-[calc(100vh-140px)] flex flex-col">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-4 shrink-0">
+        <div className="flex items-center gap-6">
+          <div className="w-16 h-16 bg-white rounded-2xl p-2 shadow-lg border border-slate-50 flex-shrink-0 flex items-center justify-center">
+            <img src={LOGO_URL} alt="SS Paw Pal Logo" className="w-full h-full object-contain" />
+          </div>
+          <div>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">AI Care Portal</h2>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+              <p className="text-slate-500 font-bold text-xs uppercase tracking-widest">Specialist Engine Online</p>
             </div>
-
-            {msg.role === "user" && (
-              <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
-                <UserIcon className="w-4 h-4 text-slate-500" />
-              </div>
-            )}
           </div>
-        ))}
-
-        {isTyping && (
-          <div className="flex gap-3">
-            <img src={PAWPAL_AVATAR} className="w-8 h-8 rounded-full" />
-            <Loader2 className="w-4 h-4 animate-spin text-primary-500" />
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* INPUT */}
-      <div className="p-3 border-t">
-        {error && (
-          <div className="mb-2 text-xs text-red-600 flex gap-2">
-            <AlertCircle className="w-4 h-4" />
-            {error}
-          </div>
-        )}
-
-        <div className="flex gap-2 items-center">
-          <button onClick={toggleVoiceInput}>
-            {isListening ? <MicOff /> : <Mic />}
-          </button>
-
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask PawPal AI about your pet…"
-            className="flex-1 resize-none rounded-lg border px-3 py-2 text-sm"
-            rows={1}
-          />
-
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || isTyping}
-            className="bg-primary-600 text-white p-2 rounded-md"
-          >
-            <Send className="w-4 h-4" />
-          </button>
         </div>
 
-        <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-          <span>1 message = 1 credit</span>
-          <span>Balance: {currentCredits}</span>
+        <div className="flex items-center gap-3">
+          <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-white border border-slate-100 rounded-xl shadow-sm">
+            <ShieldCheck size={14} className="text-emerald-500" />
+            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Strict Pet Protocol</span>
+          </div>
+          <button 
+            onClick={clearChat} 
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-500 rounded-xl hover:bg-rose-50 hover:text-rose-500 hover:border-rose-100 transition-all text-[10px] font-black uppercase tracking-widest shadow-sm active:scale-95"
+          >
+            <Trash2 size={14} /> Clear
+          </button>
+        </div>
+      </div>
+
+      {/* Chat Area */}
+      <div className="flex-1 bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden relative flex flex-col">
+        <div className="absolute top-0 right-0 p-10 opacity-[0.03] pointer-events-none">
+          <Bot size={200} />
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-6 custom-scrollbar scroll-smooth">
+          {messages.map((msg, idx) => {
+            const isUser = msg.role === 'user';
+            return (
+              <div key={idx} className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}>
+                <div className={`flex gap-4 max-w-[85%] md:max-w-[75%] ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border shadow-sm mt-1 ${isUser ? 'bg-indigo-50 border-indigo-100' : 'bg-emerald-50 border-emerald-100'}`}>
+                    {isUser ? 
+                      (user?.photoURL ? <img src={user.photoURL} className="w-full h-full rounded-full object-cover" /> : <UserIcon size={14} className="text-indigo-500" />) : 
+                      <Bot size={16} className="text-emerald-600" />
+                    }
+                  </div>
+                  
+                  <div className={`p-5 rounded-[1.5rem] text-sm font-medium leading-relaxed shadow-sm relative whitespace-pre-wrap ${isUser ? 'bg-slate-900 text-white rounded-tr-none' : 'bg-slate-50 text-slate-800 border border-slate-100 rounded-tl-none'}`}>
+                    {msg.text}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          
+          {isLoading && (
+            <div className="flex w-full justify-start">
+              <div className="flex gap-4 max-w-[75%]">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border shadow-sm mt-1 bg-emerald-50 border-emerald-100">
+                  <Bot size={16} className="text-emerald-600" />
+                </div>
+                <div className="p-5 rounded-[1.5rem] bg-slate-50 border border-slate-100 rounded-tl-none flex items-center gap-2">
+                  <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-100"></div>
+                  <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-200"></div>
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input */}
+        <div className="p-4 md:p-6 bg-white border-t border-slate-50 z-10">
+          <form onSubmit={handleSend} className="relative max-w-4xl mx-auto flex items-center gap-3">
+            <div className="relative flex-1 group">
+              <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-theme transition-colors">
+                <MessageSquareText size={20} />
+              </div>
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask about diet, training, or health..."
+                disabled={isLoading}
+                className="w-full bg-slate-50 border border-slate-200 rounded-[2rem] py-4 pl-14 pr-6 text-sm font-bold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!input.trim() || isLoading}
+              className="p-4 bg-slate-900 text-white rounded-full shadow-xl hover:bg-black hover:shadow-2xl hover:-translate-y-1 transition-all active:scale-95 disabled:opacity-50 disabled:shadow-none disabled:translate-y-0"
+            >
+              {isLoading ? <Loader2 size={24} className="animate-spin" /> : <Send size={24} />}
+            </button>
+          </form>
+          <div className="text-center mt-3">
+            <p className="text-[10px] text-slate-400 font-medium flex items-center justify-center gap-1.5">
+              <AlertCircle size={10} />
+              AI can make mistakes. Always consult a vet for medical emergencies.
+            </p>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default PawPalChat;
-import React, { useEffect, useRef, useState } from "react";
-import {
-  Send,
-  User as UserIcon,
-  Loader2,
-  Mic,
-  MicOff,
-  Sparkles,
-  AlertCircle,
-  ExternalLink,
-} from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import { Chat, GenerateContentResponse } from "@google/genai";
-
-import { ChatMessage } from "../types";
-import { GeminiService } from "../services/geminiService";
-import { PAWPAL_AVATAR } from "../App"; // ✅ rename avatar too
-
-/* ------------------------------------------------------------------ */
-/* SAMPLE QUESTIONS – SS PAW PAL                                       */
-/* ------------------------------------------------------------------ */
-const SAMPLE_QUESTIONS = [
-  "My dog is not eating food. What should I do?",
-  "How often should I bathe my puppy?",
-  "What should I feed a 2-month-old kitten?",
-  "How can I report an abusive post?",
-  "Can I connect with nearby pet owners?",
-];
-
-/* ------------------------------------------------------------------ */
-/* PROPS                                                               */
-/* ------------------------------------------------------------------ */
-interface PawPalChatProps {
-  onDeductCredit: (amount: number) => boolean;
-  currentCredits: number;
-}
-
-/* ------------------------------------------------------------------ */
-/* COMPONENT                                                           */
-/* ------------------------------------------------------------------ */
-const PawPalChat: React.FC<PawPalChatProps> = ({
-  onDeductCredit,
-  currentCredits,
-}) => {
-  /* ---------------------------- STATE ----------------------------- */
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: "model",
-      text: "Hi! I’m PawPal AI 🐾, your assistant from SS Paw Pal. How can I help you and your pet today?",
-      timestamp: Date.now(),
-    },
-  ]);
-
-  const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isApiDisabled, setIsApiDisabled] = useState(false);
-
-  /* ---------------------------- REFS ------------------------------ */
-  const chatSessionRef = useRef<Chat | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  /* ------------------------- INIT CHAT ---------------------------- */
-  useEffect(() => {
-    if (!chatSessionRef.current) {
-      chatSessionRef.current = GeminiService.createPawPalChat(); // ✅ renamed
-    }
-  }, []);
-
-  /* ---------------------- AUTO SCROLL ----------------------------- */
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  /* ------------------------------------------------------------------ */
-  /* VOICE INPUT                                                        */
-  /* ------------------------------------------------------------------ */
-  const toggleVoiceInput = () => {
-    if (isListening) return;
-
-    const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      alert("Voice input is not supported in this browser.");
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.continuous = false;
-
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onresult = (e: any) => {
-      const transcript = e.results[0][0].transcript;
-      setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
-    };
-
-    recognition.start();
-  };
-
-  /* ------------------------------------------------------------------ */
-  /* SEND MESSAGE TO AI                                                 */
-  /* ------------------------------------------------------------------ */
-  const sendMessageToAi = async (text: string) => {
-    if (!text.trim() || !chatSessionRef.current) return;
-
-    setError(null);
-    setIsApiDisabled(false);
-
-    /* ---- Credit logic ---- */
-    if (!onDeductCredit(1)) {
-      setError("Insufficient credits. 1 credit is required per message.");
-      return;
-    }
-
-    const userMessage: ChatMessage = {
-      role: "user",
-      text,
-      timestamp: Date.now(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setIsTyping(true);
-
-    try {
-      const stream = await chatSessionRef.current.sendMessageStream({
-        message: text,
-      });
-
-      let fullText = "";
-      setMessages((prev) => [
-        ...prev,
-        { role: "model", text: "", timestamp: Date.now() },
-      ]);
-
-      for await (const chunk of stream) {
-        const res = chunk as GenerateContentResponse;
-        if (res.text) {
-          fullText += res.text;
-          setMessages((prev) => {
-            const copy = [...prev];
-            copy[copy.length - 1].text = fullText;
-            return copy;
-          });
-        }
-      }
-    } catch (err: any) {
-      console.error("PawPal AI Error:", err);
-
-      let msg = "Something went wrong. Please try again.";
-      if (err?.message?.includes("PERMISSION_DENIED")) {
-        setIsApiDisabled(true);
-        msg = "API_DISABLED_BLOCK";
-      }
-
-      setMessages((prev) => [
-        ...prev,
-        { role: "model", text: msg, timestamp: Date.now() },
-      ]);
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
-  /* ----------------------- HANDLERS ------------------------------- */
-  const handleSend = () => {
-    if (!input.trim() || isTyping) return;
-    sendMessageToAi(input);
-    setInput("");
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  /* ------------------------------------------------------------------ */
-  /* UI                                                                 */
-  /* ------------------------------------------------------------------ */
-  return (
-    <div className="h-[calc(100vh-140px)] flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
-      {/* HEADER */}
-      <div className="px-4 py-2 bg-slate-50 border-b flex justify-between items-center">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-          SS Paw Pal · PawPal AI
-        </span>
-        <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full border text-[10px] font-bold">
-          <Sparkles className="w-3 h-3" />
-          1 Credit / Msg
-        </div>
-      </div>
-
-      {/* CHAT */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-5">
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`flex gap-3 ${
-              msg.role === "user" ? "justify-end" : "justify-start"
-            }`}
-          >
-            {msg.role === "model" && (
-              <img
-                src={PAWPAL_AVATAR}
-                alt="PawPal AI"
-                className="w-8 h-8 rounded-full border"
-              />
-            )}
-
-            <div
-              className={`max-w-[85%] rounded-xl px-4 py-2.5 text-sm ${
-                msg.role === "user"
-                  ? "bg-primary-600 text-white rounded-br-none"
-                  : "bg-slate-50 border text-slate-800 rounded-bl-none"
-              }`}
-            >
-              {msg.text === "API_DISABLED_BLOCK" ? (
-                <div className="space-y-2">
-                  <p className="font-bold text-red-700">
-                    Generative Language API not enabled
-                  </p>
-                  <a
-                    href="https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/overview"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 text-xs bg-red-600 text-white px-3 py-2 rounded-md"
-                  >
-                    Enable API
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              ) : msg.role === "model" ? (
-                <ReactMarkdown>{msg.text}</ReactMarkdown>
-              ) : (
-                <p>{msg.text}</p>
-              )}
-            </div>
-
-            {msg.role === "user" && (
-              <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
-                <UserIcon className="w-4 h-4 text-slate-500" />
-              </div>
-            )}
-          </div>
-        ))}
-
-        {isTyping && (
-          <div className="flex gap-3">
-            <img src={PAWPAL_AVATAR} className="w-8 h-8 rounded-full" />
-            <Loader2 className="w-4 h-4 animate-spin text-primary-500" />
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* INPUT */}
-      <div className="p-3 border-t">
-        {error && (
-          <div className="mb-2 text-xs text-red-600 flex gap-2">
-            <AlertCircle className="w-4 h-4" />
-            {error}
-          </div>
-        )}
-
-        <div className="flex gap-2 items-center">
-          <button onClick={toggleVoiceInput}>
-            {isListening ? <MicOff /> : <Mic />}
-          </button>
-
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask PawPal AI about your pet…"
-            className="flex-1 resize-none rounded-lg border px-3 py-2 text-sm"
-            rows={1}
-          />
-
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || isTyping}
-            className="bg-primary-600 text-white p-2 rounded-md"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-          <span>1 message = 1 credit</span>
-          <span>Balance: {currentCredits}</span>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default PawPalChat;
-import React, { useEffect, useRef, useState } from "react";
-import {
-  Send,
-  User as UserIcon,
-  Loader2,
-  Mic,
-  MicOff,
-  Sparkles,
-  AlertCircle,
-  ExternalLink,
-} from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import { Chat, GenerateContentResponse } from "@google/genai";
-
-import { ChatMessage } from "../types";
-import { GeminiService } from "../services/geminiService";
-import { PAWPAL_AVATAR } from "../App"; // ✅ rename avatar too
-
-/* ------------------------------------------------------------------ */
-/* SAMPLE QUESTIONS – SS PAW PAL                                       */
-/* ------------------------------------------------------------------ */
-const SAMPLE_QUESTIONS = [
-  "My dog is not eating food. What should I do?",
-  "How often should I bathe my puppy?",
-  "What should I feed a 2-month-old kitten?",
-  "How can I report an abusive post?",
-  "Can I connect with nearby pet owners?",
-];
-
-/* ------------------------------------------------------------------ */
-/* PROPS                                                               */
-/* ------------------------------------------------------------------ */
-interface PawPalChatProps {
-  onDeductCredit: (amount: number) => boolean;
-  currentCredits: number;
-}
-
-/* ------------------------------------------------------------------ */
-/* COMPONENT                                                           */
-/* ------------------------------------------------------------------ */
-const PawPalChat: React.FC<PawPalChatProps> = ({
-  onDeductCredit,
-  currentCredits,
-}) => {
-  /* ---------------------------- STATE ----------------------------- */
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: "model",
-      text: "Hi! I’m PawPal AI 🐾, your assistant from SS Paw Pal. How can I help you and your pet today?",
-      timestamp: Date.now(),
-    },
-  ]);
-
-  const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isApiDisabled, setIsApiDisabled] = useState(false);
-
-  /* ---------------------------- REFS ------------------------------ */
-  const chatSessionRef = useRef<Chat | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  /* ------------------------- INIT CHAT ---------------------------- */
-  useEffect(() => {
-    if (!chatSessionRef.current) {
-      chatSessionRef.current = GeminiService.createPawPalChat(); // ✅ renamed
-    }
-  }, []);
-
-  /* ---------------------- AUTO SCROLL ----------------------------- */
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  /* ------------------------------------------------------------------ */
-  /* VOICE INPUT                                                        */
-  /* ------------------------------------------------------------------ */
-  const toggleVoiceInput = () => {
-    if (isListening) return;
-
-    const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      alert("Voice input is not supported in this browser.");
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.continuous = false;
-
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onresult = (e: any) => {
-      const transcript = e.results[0][0].transcript;
-      setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
-    };
-
-    recognition.start();
-  };
-
-  /* ------------------------------------------------------------------ */
-  /* SEND MESSAGE TO AI                                                 */
-  /* ------------------------------------------------------------------ */
-  const sendMessageToAi = async (text: string) => {
-    if (!text.trim() || !chatSessionRef.current) return;
-
-    setError(null);
-    setIsApiDisabled(false);
-
-    /* ---- Credit logic ---- */
-    if (!onDeductCredit(1)) {
-      setError("Insufficient credits. 1 credit is required per message.");
-      return;
-    }
-
-    const userMessage: ChatMessage = {
-      role: "user",
-      text,
-      timestamp: Date.now(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setIsTyping(true);
-
-    try {
-      const stream = await chatSessionRef.current.sendMessageStream({
-        message: text,
-      });
-
-      let fullText = "";
-      setMessages((prev) => [
-        ...prev,
-        { role: "model", text: "", timestamp: Date.now() },
-      ]);
-
-      for await (const chunk of stream) {
-        const res = chunk as GenerateContentResponse;
-        if (res.text) {
-          fullText += res.text;
-          setMessages((prev) => {
-            const copy = [...prev];
-            copy[copy.length - 1].text = fullText;
-            return copy;
-          });
-        }
-      }
-    } catch (err: any) {
-      console.error("PawPal AI Error:", err);
-
-      let msg = "Something went wrong. Please try again.";
-      if (err?.message?.includes("PERMISSION_DENIED")) {
-        setIsApiDisabled(true);
-        msg = "API_DISABLED_BLOCK";
-      }
-
-      setMessages((prev) => [
-        ...prev,
-        { role: "model", text: msg, timestamp: Date.now() },
-      ]);
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
-  /* ----------------------- HANDLERS ------------------------------- */
-  const handleSend = () => {
-    if (!input.trim() || isTyping) return;
-    sendMessageToAi(input);
-    setInput("");
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  /* ------------------------------------------------------------------ */
-  /* UI                                                                 */
-  /* ------------------------------------------------------------------ */
-  return (
-    <div className="h-[calc(100vh-140px)] flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
-      {/* HEADER */}
-      <div className="px-4 py-2 bg-slate-50 border-b flex justify-between items-center">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-          SS Paw Pal · PawPal AI
-        </span>
-        <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full border text-[10px] font-bold">
-          <Sparkles className="w-3 h-3" />
-          1 Credit / Msg
-        </div>
-      </div>
-
-      {/* CHAT */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-5">
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`flex gap-3 ${
-              msg.role === "user" ? "justify-end" : "justify-start"
-            }`}
-          >
-            {msg.role === "model" && (
-              <img
-                src={PAWPAL_AVATAR}
-                alt="PawPal AI"
-                className="w-8 h-8 rounded-full border"
-              />
-            )}
-
-            <div
-              className={`max-w-[85%] rounded-xl px-4 py-2.5 text-sm ${
-                msg.role === "user"
-                  ? "bg-primary-600 text-white rounded-br-none"
-                  : "bg-slate-50 border text-slate-800 rounded-bl-none"
-              }`}
-            >
-              {msg.text === "API_DISABLED_BLOCK" ? (
-                <div className="space-y-2">
-                  <p className="font-bold text-red-700">
-                    Generative Language API not enabled
-                  </p>
-                  <a
-                    href="https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/overview"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 text-xs bg-red-600 text-white px-3 py-2 rounded-md"
-                  >
-                    Enable API
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              ) : msg.role === "model" ? (
-                <ReactMarkdown>{msg.text}</ReactMarkdown>
-              ) : (
-                <p>{msg.text}</p>
-              )}
-            </div>
-
-            {msg.role === "user" && (
-              <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
-                <UserIcon className="w-4 h-4 text-slate-500" />
-              </div>
-            )}
-          </div>
-        ))}
-
-        {isTyping && (
-          <div className="flex gap-3">
-            <img src={PAWPAL_AVATAR} className="w-8 h-8 rounded-full" />
-            <Loader2 className="w-4 h-4 animate-spin text-primary-500" />
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* INPUT */}
-      <div className="p-3 border-t">
-        {error && (
-          <div className="mb-2 text-xs text-red-600 flex gap-2">
-            <AlertCircle className="w-4 h-4" />
-            {error}
-          </div>
-        )}
-
-        <div className="flex gap-2 items-center">
-          <button onClick={toggleVoiceInput}>
-            {isListening ? <MicOff /> : <Mic />}
-          </button>
-
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask PawPal AI about your pet…"
-            className="flex-1 resize-none rounded-lg border px-3 py-2 text-sm"
-            rows={1}
-          />
-
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || isTyping}
-            className="bg-primary-600 text-white p-2 rounded-md"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-          <span>1 message = 1 credit</span>
-          <span>Balance: {currentCredits}</span>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default PawPalChat;
-import React, { useEffect, useRef, useState } from "react";
-import {
-  Send,
-  User as UserIcon,
-  Loader2,
-  Mic,
-  MicOff,
-  Sparkles,
-  AlertCircle,
-  ExternalLink,
-} from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import { Chat, GenerateContentResponse } from "@google/genai";
-
-import { ChatMessage } from "../types";
-import { GeminiService } from "../services/geminiService";
-import { PAWPAL_AVATAR } from "../App"; // ✅ rename avatar too
-
-/* ------------------------------------------------------------------ */
-/* SAMPLE QUESTIONS – SS PAW PAL                                       */
-/* ------------------------------------------------------------------ */
-const SAMPLE_QUESTIONS = [
-  "My dog is not eating food. What should I do?",
-  "How often should I bathe my puppy?",
-  "What should I feed a 2-month-old kitten?",
-  "How can I report an abusive post?",
-  "Can I connect with nearby pet owners?",
-];
-
-/* ------------------------------------------------------------------ */
-/* PROPS                                                               */
-/* ------------------------------------------------------------------ */
-interface PawPalChatProps {
-  onDeductCredit: (amount: number) => boolean;
-  currentCredits: number;
-}
-
-/* ------------------------------------------------------------------ */
-/* COMPONENT                                                           */
-/* ------------------------------------------------------------------ */
-const PawPalChat: React.FC<PawPalChatProps> = ({
-  onDeductCredit,
-  currentCredits,
-}) => {
-  /* ---------------------------- STATE ----------------------------- */
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: "model",
-      text: "Hi! I’m PawPal AI 🐾, your assistant from SS Paw Pal. How can I help you and your pet today?",
-      timestamp: Date.now(),
-    },
-  ]);
-
-  const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isApiDisabled, setIsApiDisabled] = useState(false);
-
-  /* ---------------------------- REFS ------------------------------ */
-  const chatSessionRef = useRef<Chat | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  /* ------------------------- INIT CHAT ---------------------------- */
-  useEffect(() => {
-    if (!chatSessionRef.current) {
-      chatSessionRef.current = GeminiService.createPawPalChat(); // ✅ renamed
-    }
-  }, []);
-
-  /* ---------------------- AUTO SCROLL ----------------------------- */
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  /* ------------------------------------------------------------------ */
-  /* VOICE INPUT                                                        */
-  /* ------------------------------------------------------------------ */
-  const toggleVoiceInput = () => {
-    if (isListening) return;
-
-    const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      alert("Voice input is not supported in this browser.");
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.continuous = false;
-
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onresult = (e: any) => {
-      const transcript = e.results[0][0].transcript;
-      setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
-    };
-
-    recognition.start();
-  };
-
-  /* ------------------------------------------------------------------ */
-  /* SEND MESSAGE TO AI                                                 */
-  /* ------------------------------------------------------------------ */
-  const sendMessageToAi = async (text: string) => {
-    if (!text.trim() || !chatSessionRef.current) return;
-
-    setError(null);
-    setIsApiDisabled(false);
-
-    /* ---- Credit logic ---- */
-    if (!onDeductCredit(1)) {
-      setError("Insufficient credits. 1 credit is required per message.");
-      return;
-    }
-
-    const userMessage: ChatMessage = {
-      role: "user",
-      text,
-      timestamp: Date.now(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setIsTyping(true);
-
-    try {
-      const stream = await chatSessionRef.current.sendMessageStream({
-        message: text,
-      });
-
-      let fullText = "";
-      setMessages((prev) => [
-        ...prev,
-        { role: "model", text: "", timestamp: Date.now() },
-      ]);
-
-      for await (const chunk of stream) {
-        const res = chunk as GenerateContentResponse;
-        if (res.text) {
-          fullText += res.text;
-          setMessages((prev) => {
-            const copy = [...prev];
-            copy[copy.length - 1].text = fullText;
-            return copy;
-          });
-        }
-      }
-    } catch (err: any) {
-      console.error("PawPal AI Error:", err);
-
-      let msg = "Something went wrong. Please try again.";
-      if (err?.message?.includes("PERMISSION_DENIED")) {
-        setIsApiDisabled(true);
-        msg = "API_DISABLED_BLOCK";
-      }
-
-      setMessages((prev) => [
-        ...prev,
-        { role: "model", text: msg, timestamp: Date.now() },
-      ]);
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
-  /* ----------------------- HANDLERS ------------------------------- */
-  const handleSend = () => {
-    if (!input.trim() || isTyping) return;
-    sendMessageToAi(input);
-    setInput("");
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  /* ------------------------------------------------------------------ */
-  /* UI                                                                 */
-  /* ------------------------------------------------------------------ */
-  return (
-    <div className="h-[calc(100vh-140px)] flex flex-col bg-white rounded-xl border shadow-sm overflow-hidden">
-      {/* HEADER */}
-      <div className="px-4 py-2 bg-slate-50 border-b flex justify-between items-center">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-          SS Paw Pal · PawPal AI
-        </span>
-        <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full border text-[10px] font-bold">
-          <Sparkles className="w-3 h-3" />
-          1 Credit / Msg
-        </div>
-      </div>
-
-      {/* CHAT */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-5">
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`flex gap-3 ${
-              msg.role === "user" ? "justify-end" : "justify-start"
-            }`}
-          >
-            {msg.role === "model" && (
-              <img
-                src={PAWPAL_AVATAR}
-                alt="PawPal AI"
-                className="w-8 h-8 rounded-full border"
-              />
-            )}
-
-            <div
-              className={`max-w-[85%] rounded-xl px-4 py-2.5 text-sm ${
-                msg.role === "user"
-                  ? "bg-primary-600 text-white rounded-br-none"
-                  : "bg-slate-50 border text-slate-800 rounded-bl-none"
-              }`}
-            >
-              {msg.text === "API_DISABLED_BLOCK" ? (
-                <div className="space-y-2">
-                  <p className="font-bold text-red-700">
-                    Generative Language API not enabled
-                  </p>
-                  <a
-                    href="https://console.developers.google.com/apis/api/generativelanguage.googleapis.com/overview"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 text-xs bg-red-600 text-white px-3 py-2 rounded-md"
-                  >
-                    Enable API
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              ) : msg.role === "model" ? (
-                <ReactMarkdown>{msg.text}</ReactMarkdown>
-              ) : (
-                <p>{msg.text}</p>
-              )}
-            </div>
-
-            {msg.role === "user" && (
-              <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
-                <UserIcon className="w-4 h-4 text-slate-500" />
-              </div>
-            )}
-          </div>
-        ))}
-
-        {isTyping && (
-          <div className="flex gap-3">
-            <img src={PAWPAL_AVATAR} className="w-8 h-8 rounded-full" />
-            <Loader2 className="w-4 h-4 animate-spin text-primary-500" />
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* INPUT */}
-      <div className="p-3 border-t">
-        {error && (
-          <div className="mb-2 text-xs text-red-600 flex gap-2">
-            <AlertCircle className="w-4 h-4" />
-            {error}
-          </div>
-        )}
-
-        <div className="flex gap-2 items-center">
-          <button onClick={toggleVoiceInput}>
-            {isListening ? <MicOff /> : <Mic />}
-          </button>
-
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask PawPal AI about your pet…"
-            className="flex-1 resize-none rounded-lg border px-3 py-2 text-sm"
-            rows={1}
-          />
-
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || isTyping}
-            className="bg-primary-600 text-white p-2 rounded-md"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-          <span>1 message = 1 credit</span>
-          <span>Balance: {currentCredits}</span>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default PawPalChat;
+export default AIAssistant;
