@@ -33,6 +33,7 @@ import {
   persistentLocalCache,
   persistentMultipleTabManager
 } from "firebase/firestore";
+import { getMessaging, getToken } from "firebase/messaging";
 import { User, PetProfile, FollowStatus } from '../types';
 
 const firebaseConfig = {
@@ -47,14 +48,40 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+export const messaging = getMessaging(app);
 
 // Initialize Firestore with settings to resolve "Could not reach backend" error
 // experimentalForceLongPolling is key for environments where WebSockets are unstable.
-// Removed 'useFetchStreams' as it is not part of the standard FirestoreSettings type in version 10.x/11.x
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
   experimentalForceLongPolling: true
 });
+
+// Device Registration for Push Notifications
+export const registerDevice = async () => {
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      console.log("Notification permission denied");
+      return null;
+    }
+
+    // Note: In production, replace this string with your actual VAPID public key 
+    // generated in Firebase Console > Project Settings > Cloud Messaging > Web configuration
+    const VAPID_KEY = "YOUR_PUBLIC_VAPID_KEY_HERE"; 
+
+    // If no VAPID key is provided in code, getToken might fail depending on project config.
+    // Ensure you generate a key pair in Firebase Console.
+    const token = await getToken(messaging, {
+      vapidKey: VAPID_KEY
+    });
+    
+    return token;
+  } catch (error) {
+    console.error("An error occurred while retrieving token. ", error);
+    return null;
+  }
+};
 
 export const isUsernameTaken = async (username: string, excludeUid: string) => {
   if (!username) return false;

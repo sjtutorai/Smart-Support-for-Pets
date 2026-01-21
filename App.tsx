@@ -1,4 +1,3 @@
-
 import React, { useEffect, lazy, Suspense } from 'react';
 // Changed to HashRouter to ensure compatibility with specialized hosting environments
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -7,6 +6,7 @@ import { AppRoutes } from './types';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { Loader2 } from 'lucide-react';
+import { registerDevice } from './services/firebase';
 
 // Lazy load pages for performance
 const Home = lazy(() => import('./pages/Home'));
@@ -58,6 +58,8 @@ declare global {
 }
 
 const AppContent: React.FC = () => {
+  const { user } = useAuth();
+
   useEffect(() => {
     const preloader = document.getElementById('preloader');
     if (preloader) {
@@ -65,6 +67,29 @@ const AppContent: React.FC = () => {
       setTimeout(() => preloader.remove(), 500);
     }
   }, []);
+
+  // Register device for push notifications when user logs in
+  useEffect(() => {
+    const initNotifications = async () => {
+      if (user) {
+        try {
+          const token = await registerDevice();
+          if (token) {
+            await fetch("/api/register-device", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token, uid: user.uid }),
+            });
+            console.log("Device registered for notifications");
+          }
+        } catch (error) {
+          console.error("Failed to register device for notifications:", error);
+        }
+      }
+    };
+
+    initNotifications();
+  }, [user]);
 
   return (
     <Suspense fallback={<PageLoader />}>
