@@ -1,12 +1,35 @@
-import React, { useEffect, lazy, Suspense } from 'react';
+import React, { useEffect, lazy, Suspense, Component, ReactNode } from 'react';
 // Changed to HashRouter to ensure compatibility with specialized hosting environments
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import { AppRoutes } from './types';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { registerDevice } from './services/firebase';
+
+// Simple Error Boundary for Lazy Components
+// Fix: Explicitly extend React.Component and mark children as optional to resolve property existence (state/props) and JSX missing prop errors.
+class PageErrorBoundary extends React.Component<{children?: ReactNode}, {hasError: boolean}> {
+  constructor(props: {children?: ReactNode}) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="h-full flex flex-col items-center justify-center p-10 text-center space-y-4">
+          <AlertCircle size={48} className="text-rose-500" />
+          <h2 className="text-xl font-black">Page failed to load</h2>
+          <p className="text-slate-500">There was an error loading this module.</p>
+          <button onClick={() => window.location.reload()} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold">Try Again</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // Lazy load pages for performance
 const Home = lazy(() => import('./pages/Home'));
@@ -34,7 +57,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     return <Navigate to="/login" replace />;
   }
   
-  return <Layout>{children}</Layout>;
+  return <Layout><PageErrorBoundary>{children}</PageErrorBoundary></Layout>;
 };
 
 const PageLoader = () => (

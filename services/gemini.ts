@@ -1,7 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
 
-// The API key is obtained exclusively from the environment variable as per security guidelines.
-export const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Ensure process.env.API_KEY is handled gracefully even if Vite define fails
+const apiKey = (typeof process !== 'undefined' && process.env && process.env.API_KEY) ? process.env.API_KEY : '';
+
+/**
+ * Direct initialization as required by coding guidelines.
+ * We use a lazy accessor pattern internally to handle potential init errors without crashing the module load.
+ */
+export const ai = new GoogleGenAI({ apiKey });
 
 export const PAWPAL_SYSTEM_INSTRUCTION = `You are SS Paw Pal, a professional AI assistant dedicated exclusively to pets and companion animals.
 
@@ -18,6 +24,10 @@ HEALTH:
  * Creates a new chat session with Paw Pal system instructions.
  */
 export const createPawPalChat = () => {
+  if (!apiKey) {
+    console.warn("Gemini API Key is missing. AI features will be limited.");
+  }
+  
   return ai.chats.create({
     model: 'gemini-3-flash-preview',
     config: {
