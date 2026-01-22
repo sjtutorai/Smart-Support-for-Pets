@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Utensils, 
@@ -16,9 +15,8 @@ import {
   Dog
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { GoogleGenAI } from "@google/genai";
+import { generatePawPalContent } from '../services/gemini';
 import { getPetsByOwnerId } from '../services/firebase';
-// FIX: Import AppRoutes to resolve the reference error on line 141
 import { AppRoutes } from '../types';
 
 const ProgressBar: React.FC<{ label: string, value: number, color: string }> = ({ label, value, color }) => (
@@ -54,7 +52,6 @@ const PetCare: React.FC = () => {
         if (remotePets.length > 0) {
           setPet(remotePets[0]);
         } else {
-          // Fallback to local check
           const saved = localStorage.getItem(`pet_${user.uid}`) || localStorage.getItem(`ssp_pets_${user.uid}`);
           if (saved) {
              const parsed = JSON.parse(saved);
@@ -115,11 +112,9 @@ const PetCare: React.FC = () => {
     if (!pet) return;
     setAiTip("Asking the experts...");
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `My pet is a ${pet.breed} ${pet.species}, aged ${pet.ageYears} years and ${pet.ageMonths} months. What is a healthy, species-appropriate treat or activity I can give them right now? Keep it under 50 words.`,
-      });
+      const response = await generatePawPalContent(
+        `My pet is a ${pet.breed} ${pet.species}, aged ${pet.ageYears} years and ${pet.ageMonths} months. What is a healthy, species-appropriate treat or activity I can give them right now? Keep it under 50 words.`
+      );
       setAiTip(response.text || "Fresh water and a gentle brush are always great!");
     } catch (e) {
       setAiTip("A simple cuddle is the best treat for any age!");
@@ -166,7 +161,6 @@ const PetCare: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-        {/* Interaction Zone */}
         <div className="lg:col-span-2 bg-white rounded-[3.5rem] border border-slate-100 shadow-sm overflow-hidden relative">
           <div className="p-10 text-center relative z-10">
             <div className="mb-10 relative inline-block">
@@ -226,7 +220,6 @@ const PetCare: React.FC = () => {
           )}
         </div>
 
-        {/* Stats and Age Advice */}
         <div className="space-y-10">
           <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-8">
             <h3 className="font-black text-xl text-slate-800 uppercase tracking-widest">Current Vitals</h3>

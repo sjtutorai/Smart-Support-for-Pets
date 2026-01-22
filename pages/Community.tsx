@@ -9,7 +9,7 @@ import { db } from '../services/firebase';
 import { 
   collection, addDoc, query, orderBy, onSnapshot, serverTimestamp 
 } from "firebase/firestore";
-import { GoogleGenAI } from "@google/genai";
+import { generatePawPalContent } from '../services/gemini';
 import { PetProfile, Post } from '../types';
 import { Link } from 'react-router-dom';
 import FollowButton from '../components/FollowButton';
@@ -61,11 +61,9 @@ const Community: React.FC = () => {
     if (!newPostContent.trim()) { addNotification('AI Assistant', 'Draft a message first!', 'info'); return; }
     setIsEnhancing(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Enhance this pet social media caption: "${newPostContent}". Make it engaging, add relevant pet hashtags, and keep it under 40 words.`,
-      });
+      const response = await generatePawPalContent(
+        `Enhance this pet social media caption: "${newPostContent}". Make it engaging, add relevant pet hashtags, and keep it under 40 words.`
+      );
       if (response.text) { setNewPostContent(response.text.trim()); addNotification('AI Magical Touch', 'Caption enhanced!', 'success'); }
     } catch (error) { addNotification('AI Engine Error', 'Could not enhance caption.', 'error'); } 
     finally { setIsEnhancing(false); }
