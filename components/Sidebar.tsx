@@ -115,8 +115,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isCollapsed, setIs
         {/* Header / Brand */}
         <div className="h-24 flex items-center px-6 shrink-0 relative">
           <Link to={AppRoutes.HOME} className="flex items-center gap-4 group w-full overflow-hidden">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-indigo-200 group-hover:scale-105 transition-transform duration-300">
-               <img src={LOGO_URL} alt="Logo" className="w-6 h-6 object-contain brightness-0 invert" />
+            <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-300">
+               <img src={LOGO_URL} alt="Logo" className="w-7 h-7 object-contain" />
             </div>
             <div className={`flex flex-col min-w-0 transition-opacity duration-300 ${isCollapsed ? 'md:opacity-0 md:w-0' : 'opacity-100'}`}>
               <span className="text-lg font-black text-slate-900 tracking-tight leading-none whitespace-nowrap">SS Paw Pal</span>

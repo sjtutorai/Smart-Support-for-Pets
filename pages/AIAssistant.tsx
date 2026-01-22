@@ -52,7 +52,7 @@ const AIAssistant: React.FC = () => {
         const session = createPawPalChat();
         if (isMounted) chatSessionRef.current = session;
        } catch (e) {
-         console.error("Failed to init AI chat", e);
+         console.error("Failed to init AI chat:", e);
          if (isMounted) {
            setError("Unable to connect to PawPal AI Engine.");
            setInitError(true);
@@ -177,7 +177,12 @@ const AIAssistant: React.FC = () => {
             <div className={`max-w-[85%] rounded-[2rem] px-6 py-4 text-sm font-medium leading-relaxed ${msg.role === "user" ? "bg-slate-900 text-white rounded-br-sm shadow-xl" : "bg-slate-50 border border-slate-100 text-slate-700 rounded-bl-sm"}`}>
               {msg.role === "model" ? (
                 <div className="prose prose-sm max-w-none prose-slate">
-                  <ReactMarkdown>{msg.text || "..."}</ReactMarkdown>
+                  {/* Defensive Markdown rendering */}
+                  {ReactMarkdown ? (
+                    <ReactMarkdown>{msg.text || "..."}</ReactMarkdown>
+                  ) : (
+                    <div className="whitespace-pre-wrap">{msg.text || "..."}</div>
+                  )}
                 </div>
               ) : (
                 <p>{msg.text}</p>

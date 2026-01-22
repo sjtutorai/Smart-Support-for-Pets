@@ -1,4 +1,4 @@
-import React, { useEffect, lazy, Suspense, Component, ReactNode } from 'react';
+import React, { useEffect, lazy, Suspense, ReactNode } from 'react';
 // Changed to HashRouter to ensure compatibility with specialized hosting environments
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
@@ -8,21 +8,34 @@ import { NotificationProvider } from './context/NotificationContext';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { registerDevice } from './services/firebase';
 
-// Simple Error Boundary for Lazy Components
-// Fix: Explicitly extend React.Component and mark children as optional to resolve property existence (state/props) and JSX missing prop errors.
-class PageErrorBoundary extends React.Component<{children?: ReactNode}, {hasError: boolean}> {
-  constructor(props: {children?: ReactNode}) {
+interface ErrorBoundaryProps {
+  children?: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+// Fix: Explicitly using React.Component with typed Props and State to resolve "Property 'state'/'props' does not exist" errors
+class PageErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null };
   }
-  static getDerivedStateFromError() { return { hasError: true }; }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, errorInfo: any) {
+    console.error("PageErrorBoundary caught an error:", error, errorInfo);
+  }
   render() {
     if (this.state.hasError) {
       return (
         <div className="h-full flex flex-col items-center justify-center p-10 text-center space-y-4">
           <AlertCircle size={48} className="text-rose-500" />
           <h2 className="text-xl font-black">Page failed to load</h2>
-          <p className="text-slate-500">There was an error loading this module.</p>
+          <p className="text-slate-500">There was an error loading this module. Check the console for details.</p>
           <button onClick={() => window.location.reload()} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold">Try Again</button>
         </div>
       );
